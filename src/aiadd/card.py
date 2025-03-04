@@ -12,6 +12,8 @@ class CreditCardOCR:
     def __init__(self):
         # Tesseract 설정 (--lang 옵션 제거)
         self.config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789/. '
+        # 숫자 인식에 특화된 설정
+        self.digits_config = r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789'
 
     def preprocess_image(self, image):
         """이미지 전처리 함수"""
@@ -24,7 +26,7 @@ class CreditCardOCR:
         # 노이즈 제거를 위한 가우시안 블러
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        # 명암 대비 향상
+        # 명암 대비 향상 (CLAHE)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         enhanced = clahe.apply(blurred)
 
@@ -39,14 +41,27 @@ class CreditCardOCR:
         edges = cv2.Canny(enhanced, 50, 150)
         dilated_edges = cv2.dilate(edges, kernel, iterations=1)
 
+        # 추가 전처리: 적응형 이진화
+        adaptive_binary = cv2.adaptiveThreshold(enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                              cv2.THRESH_BINARY, 11, 2)
+
+        # 추가 전처리: 명암 대비 조정
+        alpha = 1.5  # 대비 조정 파라미터
+        beta = 10    # 밝기 조정 파라미터
+        contrast_enhanced = cv2.convertScaleAbs(gray, alpha=alpha, beta=beta)
+        _, contrast_binary = cv2.threshold(contrast_enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
         # 다양한 전처리 이미지 저장
         cv2.imwrite('gray_card.jpg', gray)
         cv2.imwrite('enhanced_card.jpg', enhanced)
         cv2.imwrite('binary_card.jpg', binary)
         cv2.imwrite('morph_card.jpg', morph)
         cv2.imwrite('edges_card.jpg', dilated_edges)
+        cv2.imwrite('adaptive_binary_card.jpg', adaptive_binary)
+        cv2.imwrite('contrast_enhanced_card.jpg', contrast_enhanced)
+        cv2.imwrite('contrast_binary_card.jpg', contrast_binary)
 
-        return morph, binary, dilated_edges, enhanced
+        return morph, binary, dilated_edges, enhanced, adaptive_binary, contrast_binary
 
     def extract_card_info(self, image_path):
         """신용카드 정보 추출 함수"""
@@ -68,36 +83,44 @@ class CreditCardOCR:
             image = cv2.resize(image, None, fx=scale, fy=scale)
 
         # 이미지 전처리 (여러 방법)
-        morph, binary, edges, enhanced = self.preprocess_image(image)
+        morph, binary, edges, enhanced, adaptive_binary, contrast_binary = self.preprocess_image(image)
 
         # 다양한 전처리 방법 시도
         results = []
 
-        # 방법 1: 기본 전처리
-        text1 = pytesseract.image_to_string(morph, config=self.config)
-        results.append(text1)
+        # # 방법 1: 기본 전처리
+        # text1 = pytesseract.image_to_string(morph, config=self.config)
+        # results.append(text1)
 
-        # 방법 2: 반전된 이미지
-        inverted = cv2.bitwise_not(binary)
-        text2 = pytesseract.image_to_string(inverted, config=self.config)
-        results.append(text2)
+        # # 방법 2: 반전된 이미지
+        # inverted = cv2.bitwise_not(binary)
+        # text2 = pytesseract.image_to_string(inverted, config=self.config)
+        # results.append(text2)
 
-        # 방법 3: 에지 이미지
-        text3 = pytesseract.image_to_string(edges, config=self.config)
-        results.append(text3)
+        # # 방법 3: 에지 이미지
+        # text3 = pytesseract.image_to_string(edges, config=self.config)
+        # results.append(text3)
 
-        # 방법 4: 향상된 이미지
-        text4 = pytesseract.image_to_string(enhanced, config=self.config)
-        results.append(text4)
+        # # 방법 4: 향상된 이미지
+        # text4 = pytesseract.image_to_string(enhanced, config=self.config)
+        # results.append(text4)
 
-        # 방법 5: PIL 이미지로 변환
-        pil_image = Image.fromarray(morph)
-        text5 = pytesseract.image_to_string(pil_image, config=self.config)
-        results.append(text5)
+        # # 방법 5: 적응형 이진화 이미지
+        # text5 = pytesseract.image_to_string(adaptive_binary, config=self.config)
+        # results.append(text5)
 
-        # 방법 6: 원본 이미지 직접 사용
-        text6 = pytesseract.image_to_string(image, config=self.config)
-        results.append(text6)
+        # # 방법 6: 대비 향상 이진화 이미지
+        # text6 = pytesseract.image_to_string(contrast_binary, config=self.config)
+        # results.append(text6)
+
+        # # 방법 7: PIL 이미지로 변환
+        # pil_image = Image.fromarray(morph)
+        # text7 = pytesseract.image_to_string(pil_image, config=self.config)
+        # results.append(text7)
+
+        # 방법 8: 원본 이미지 직접 사용
+        text8 = pytesseract.image_to_string(image, config=self.config)
+        results.append(text8)
 
         # 모든 결과 텍스트 합치기
         all_text = ' '.join(results)
@@ -123,6 +146,37 @@ class CreditCardOCR:
                 # 4자리씩 포맷팅
                 card_number = ' '.join([card_number[i:i+4] for i in range(0, len(card_number), 4)])
                 break
+
+        # 카드 번호 첫 자리 특별 처리
+        if card_number:
+            # 카드 번호 첫 자리 영역 추출 시도
+            try:
+                # 이미지에서 카드 번호 영역을 찾기 위한 추가 처리
+                # 여러 전처리 이미지에서 첫 자리 숫자만 집중적으로 인식
+                first_digit_candidates = []
+
+                # 다양한 이미지에서 숫자 인식 시도
+                for img in [morph, binary, enhanced, adaptive_binary, contrast_binary, image]:
+                    # 숫자 인식에 특화된 설정으로 OCR 수행
+                    digits = pytesseract.image_to_string(img, config=self.digits_config)
+                    # 숫자만 추출
+                    digit_matches = re.findall(r'\d', digits)
+                    if digit_matches:
+                        first_digit_candidates.extend(digit_matches)
+
+                # 가장 많이 나온 숫자를 첫 자리로 선택
+                if first_digit_candidates:
+                    from collections import Counter
+                    most_common_digit = Counter(first_digit_candidates).most_common(1)[0][0]
+
+                    # 카드 번호 첫 자리가 5인지 확인 (Mastercard는 일반적으로 5로 시작)
+                    # 또는 4인지 확인 (Visa는 일반적으로 4로 시작)
+                    if most_common_digit in ['4', '5']:
+                        # 기존 카드 번호의 첫 자리를 대체
+                        card_number = most_common_digit + card_number[1:]
+                        print(f"카드 번호 첫 자리를 {most_common_digit}로 수정했습니다.")
+            except Exception as e:
+                print(f"카드 번호 첫 자리 처리 중 오류 발생: {e}")
 
         # 유효기간 추출 (다양한 패턴 시도)
         expiry_patterns = [
