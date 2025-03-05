@@ -98,3 +98,33 @@ src/main/resources/
 - [네이버 클라우드 플랫폼 CLOVA OCR 가이드](https://guide.ncloud-docs.com/docs/clovaocr-example01)
 - [Spring Boot 공식 문서](https://spring.io/projects/spring-boot)
 - [Thymeleaf 공식 문서](https://www.thymeleaf.org/documentation.html)
+
+## 환경별 API 응답 구조 차이
+
+Naver CLOVA OCR API는 개발 환경과 운영 환경에서 다른 응답 구조를 반환할 수 있습니다. 이 프로젝트는 두 환경 모두에서 작동하도록 설계되었습니다.
+
+### 응답 구조 비교
+
+1. **개발 환경 (dev)**
+   - 응답에 `fields` 배열이 포함됨
+   - 각 필드는 `inferText` 속성에 인식된 텍스트를 포함
+   - 응답 파일: `ocr_response-dev.json`
+
+2. **운영 환경 (prod)**
+   - 응답에 `creditCard` 객체가 포함됨
+   - `creditCard.result` 객체 내에 `cardNumber`, `validThru`, `cardHolder` 등의 정보가 직접 제공됨
+   - 응답 파일: `ocr_response-prod.json`
+
+### 디버깅 방법
+
+환경별 응답 구조를 확인하려면:
+
+```bash
+# 개발 환경에서 실행
+./gradlew bootRun --args='--spring.profiles.active=dev'
+
+# 운영 환경에서 실행
+./gradlew bootRun --args='--spring.profiles.active=prod'
+```
+
+각 환경에서 실행 후 생성된 `ocr_response-{env}.json` 파일을 비교하여 응답 구조의 차이를 확인할 수 있습니다.

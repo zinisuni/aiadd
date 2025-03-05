@@ -202,8 +202,16 @@ public class NaverOcrService {
      */
     private void saveResponseToFile(String response) {
         try {
-            Path path = Paths.get("ocr_response.json");
+            // 현재 활성화된 프로필 확인
+            String[] activeProfiles = environment.getActiveProfiles();
+            String profileSuffix = activeProfiles.length > 0 ? "-" + activeProfiles[0] : "";
+
+            // 프로필에 따라 파일명 생성 (dev 또는 prod)
+            String fileName = "ocr_response" + profileSuffix + ".json";
+
+            Path path = Paths.get(fileName);
             Files.write(path, response.getBytes());
+            log.debug("OCR 응답 저장 완료: {}", fileName);
         } catch (IOException e) {
             log.error("응답 저장 중 오류 발생: {}", e.getMessage());
         }
@@ -238,28 +246,65 @@ public class NaverOcrService {
 
             JSONObject firstImage = images.getJSONObject(0);
 
-            // fields 배열 존재 여부 확인
-            if (!firstImage.has("fields")) {
-                log.error("OCR 결과에 'fields' 필드가 없습니다: {}", firstImage);
-                // 전체 응답 구조 로깅
-                logJsonStructure(firstImage, "firstImage");
-                return CardInfoDto.builder().build();
+            // 현재 활성화된 프로필 확인
+            String[] activeProfiles = environment.getActiveProfiles();
+            String activeProfile = activeProfiles.length > 0 ? activeProfiles[0] : "default";
+            log.debug("현재 활성화된 프로필: {}", activeProfile);
+
+            // 전체 응답 구조 로깅
+            logJsonStructure(firstImage, "firstImage");
+
+            // 카드 정보 추출 (환경별로 다른 처리)
+            String cardNumber = null;
+            String expiryDate = null;
+            String cardHolder = null;
+
+            // fields 배열 존재 여부 확인 (개발 환경)
+            if (firstImage.has("fields")) {
+                log.debug("'fields' 배열을 사용하여 카드 정보 추출 시도");
+                JSONArray fields = firstImage.getJSONArray("fields");
+                log.debug("필드 수: {}", fields.length());
+
+                // 카드 번호 추출
+                cardNumber = extractCardNumberFromFields(fields);
+                log.debug("추출된 카드 번호: {}", cardNumber);
+
+                // 유효기간 추출
+                expiryDate = extractExpiryDateFromFields(fields);
+                log.debug("추출된 유효기간: {}", expiryDate);
+
+                // 카드 소유자 이름 추출
+                cardHolder = extractCardHolderFromFields(fields);
+                log.debug("추출된 카드 소유자: {}", cardHolder);
             }
 
-            JSONArray fields = firstImage.getJSONArray("fields");
-            log.debug("필드 수: {}", fields.length());
+            // creditCard 필드 존재 여부 확인 (운영 환경)
+            if (firstImage.has("creditCard")) {
+                log.debug("'creditCard' 필드를 사용하여 카드 정보 추출 시도");
+                JSONObject creditCard = firstImage.getJSONObject("creditCard");
 
-            // 카드 번호 추출
-            String cardNumber = extractCardNumberFromFields(fields);
-            log.debug("추출된 카드 번호: {}", cardNumber);
+                if (creditCard.has("result")) {
+                    JSONObject result = creditCard.getJSONObject("result");
 
-            // 유효기간 추출
-            String expiryDate = extractExpiryDateFromFields(fields);
-            log.debug("추출된 유효기간: {}", expiryDate);
+                    // 카드 번호 추출
+                    if (result.has("cardNumber") && !result.isNull("cardNumber")) {
+                        cardNumber = result.getString("cardNumber");
+                        log.debug("creditCard에서 추출된 카드 번호: {}", cardNumber);
+                    }
 
-            // 카드 소유자 이름 추출
-            String cardHolder = extractCardHolderFromFields(fields);
-            log.debug("추출된 카드 소유자: {}", cardHolder);
+                    // 유효기간 추출
+                    if (result.has("validThru") && !result.isNull("validThru")) {
+                        expiryDate = result.getString("validThru");
+                        log.debug("creditCard에서 추출된 유효기간: {}", expiryDate);
+                    }
+
+                    // 카드 소유자 이름 추출
+                    if (result.has("cardHolder") && !result.isNull("cardHolder")) {
+                        cardHolder = result.getString("cardHolder");
+                        log.debug("creditCard에서 추출된 카드 소유자: {}", cardHolder);
+                    }
+                }
+            }
 
             // 카드 타입 추출
             String cardType = determineCardType(cardNumber);
