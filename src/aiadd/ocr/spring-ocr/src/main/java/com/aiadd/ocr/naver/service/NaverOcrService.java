@@ -287,21 +287,35 @@ public class NaverOcrService {
                     JSONObject result = creditCard.getJSONObject("result");
 
                     // 카드 번호 추출
-                    if (result.has("cardNumber") && !result.isNull("cardNumber")) {
-                        cardNumber = result.getString("cardNumber");
-                        log.debug("creditCard에서 추출된 카드 번호: {}", cardNumber);
+                    if (result.has("number") && !result.isNull("number")) {
+                        JSONObject numberObj = result.getJSONObject("number");
+                        if (numberObj.has("text") && !numberObj.isNull("text")) {
+                            cardNumber = numberObj.getString("text");
+                            log.debug("creditCard에서 추출된 카드 번호: {}", cardNumber);
+                        }
                     }
 
                     // 유효기간 추출
                     if (result.has("validThru") && !result.isNull("validThru")) {
-                        expiryDate = result.getString("validThru");
-                        log.debug("creditCard에서 추출된 유효기간: {}", expiryDate);
+                        JSONObject validThruObj = result.getJSONObject("validThru");
+                        if (validThruObj.has("text") && !validThruObj.isNull("text")) {
+                            expiryDate = validThruObj.getString("text");
+                            log.debug("creditCard에서 추출된 유효기간: {}", expiryDate);
+                        }
                     }
 
                     // 카드 소유자 이름 추출
                     if (result.has("cardHolder") && !result.isNull("cardHolder")) {
-                        cardHolder = result.getString("cardHolder");
-                        log.debug("creditCard에서 추출된 카드 소유자: {}", cardHolder);
+                        if (result.get("cardHolder") instanceof JSONObject) {
+                            JSONObject cardHolderObj = result.getJSONObject("cardHolder");
+                            if (cardHolderObj.has("text") && !cardHolderObj.isNull("text")) {
+                                cardHolder = cardHolderObj.getString("text");
+                                log.debug("creditCard에서 추출된 카드 소유자: {}", cardHolder);
+                            }
+                        } else if (!result.isNull("cardHolder")) {
+                            cardHolder = result.getString("cardHolder");
+                            log.debug("creditCard에서 추출된 카드 소유자: {}", cardHolder);
+                        }
                     }
                 }
             }
@@ -332,12 +346,32 @@ public class NaverOcrService {
             for (String key : json.keySet()) {
                 Object value = json.get(key);
                 if (value instanceof JSONObject) {
-                    log.debug("  {} (객체)", key);
+                    JSONObject jsonObj = (JSONObject) value;
+                    log.debug("  {} (객체):", key);
+                    // 중첩된 객체의 키 출력
+                    for (String subKey : jsonObj.keySet()) {
+                        Object subValue = jsonObj.get(subKey);
+                        if (subValue instanceof JSONObject || subValue instanceof JSONArray) {
+                            log.debug("    {} (복합 타입)", subKey);
+                        } else {
+                            log.debug("    {} = {}", subKey, subValue);
+                        }
+                    }
                 } else if (value instanceof JSONArray) {
                     JSONArray array = (JSONArray) value;
                     log.debug("  {} (배열, 길이: {})", key, array.length());
+                    // 배열의 첫 번째 요소 타입 확인
+                    if (array.length() > 0) {
+                        Object firstItem = array.get(0);
+                        if (firstItem instanceof JSONObject) {
+                            JSONObject firstObj = (JSONObject) firstItem;
+                            log.debug("    첫 번째 항목 키: {}", String.join(", ", firstObj.keySet()));
+                        } else {
+                            log.debug("    첫 번째 항목 타입: {}", firstItem.getClass().getSimpleName());
+                        }
+                    }
                 } else {
-                    log.debug("  {} ({}): {}", key, value.getClass().getSimpleName(), value);
+                    log.debug("  {} = {}", key, value);
                 }
             }
         } catch (Exception e) {
