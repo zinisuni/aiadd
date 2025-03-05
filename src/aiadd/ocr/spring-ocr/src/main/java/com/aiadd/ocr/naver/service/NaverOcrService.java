@@ -238,33 +238,27 @@ public class NaverOcrService {
 
             JSONObject firstImage = images.getJSONObject(0);
 
-            // 필드 존재 여부 확인
-            if (!firstImage.has("creditCard")) {
-                log.error("OCR 결과에 'creditCard' 필드가 없습니다: {}", firstImage);
+            // fields 배열 존재 여부 확인
+            if (!firstImage.has("fields")) {
+                log.error("OCR 결과에 'fields' 필드가 없습니다: {}", firstImage);
                 // 전체 응답 구조 로깅
                 logJsonStructure(firstImage, "firstImage");
                 return CardInfoDto.builder().build();
             }
 
-            JSONObject creditCard = firstImage.getJSONObject("creditCard");
-            if (!creditCard.has("result")) {
-                log.error("OCR 결과에 'creditCard.result' 필드가 없습니다: {}", creditCard);
-                logJsonStructure(creditCard, "creditCard");
-                return CardInfoDto.builder().build();
-            }
-
-            JSONObject result = creditCard.getJSONObject("result");
+            JSONArray fields = firstImage.getJSONArray("fields");
+            log.debug("필드 수: {}", fields.length());
 
             // 카드 번호 추출
-            String cardNumber = extractCardNumberFromCreditCard(result);
+            String cardNumber = extractCardNumberFromFields(fields);
             log.debug("추출된 카드 번호: {}", cardNumber);
 
             // 유효기간 추출
-            String expiryDate = extractExpiryDateFromCreditCard(result);
+            String expiryDate = extractExpiryDateFromFields(fields);
             log.debug("추출된 유효기간: {}", expiryDate);
 
             // 카드 소유자 이름 추출
-            String cardHolder = extractCardHolder(firstImage);
+            String cardHolder = extractCardHolderFromFields(fields);
             log.debug("추출된 카드 소유자: {}", cardHolder);
 
             // 카드 타입 추출
@@ -307,82 +301,135 @@ public class NaverOcrService {
     }
 
     /**
-     * 신용카드 결과에서 카드 번호를 추출합니다.
+     * fields 배열에서 카드 번호를 추출합니다.
      */
-    private String extractCardNumberFromCreditCard(JSONObject creditCardResult) {
+    private String extractCardNumberFromFields(JSONArray fields) {
         try {
-            if (creditCardResult.has("number")) {
-                JSONObject numberObj = creditCardResult.getJSONObject("number");
-                if (numberObj.has("text")) {
-                    String cardNumber = numberObj.getString("text");
-                    // 숫자만 추출
-                    cardNumber = cardNumber.replaceAll("[^0-9]", "");
+            // 카드 번호 패턴 (4자리 숫자 그룹)
+            Pattern cardNumberPattern = Pattern.compile("\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}");
 
-                    // 4자리씩 그룹화
-                    if (cardNumber.length() >= 12) {
-                        StringBuilder formatted = new StringBuilder();
-                        for (int i = 0; i < cardNumber.length(); i += 4) {
-                            if (i > 0) {
-                                formatted.append(" ");
+            // 모든 필드의 텍스트를 연결하여 카드 번호 패턴 검색
+            StringBuilder allText = new StringBuilder();
+            for (int i = 0; i < fields.length(); i++) {
+                JSONObject field = fields.getJSONObject(i);
+                if (field.has("inferText")) {
+                    String text = field.getString("inferText");
+                    allText.append(text).append(" ");
+                }
+            }
+
+            // 전체 텍스트에서 카드 번호 패턴 검색
+            Matcher matcher = cardNumberPattern.matcher(allText.toString());
+            if (matcher.find()) {
+                String cardNumber = matcher.group().replaceAll("[\\s-]", "");
+
+                // 카드 번호 포맷팅 (4자리씩 그룹화)
+                StringBuilder formatted = new StringBuilder();
+                for (int i = 0; i < cardNumber.length(); i += 4) {
+                    if (i > 0) {
+                        formatted.append(" ");
+                    }
+                    formatted.append(cardNumber.substring(i, Math.min(i + 4, cardNumber.length())));
+                }
+                return formatted.toString();
+            }
+
+            // 개별 필드에서 카드 번호 검색
+            for (int i = 0; i < fields.length(); i++) {
+                JSONObject field = fields.getJSONObject(i);
+                if (field.has("inferText")) {
+                    String text = field.getString("inferText");
+                    // 4자리 숫자 그룹 확인
+                    if (text.matches("\\d{4}") && i + 3 < fields.length()) {
+                        // 연속된 4개의 필드가 각각 4자리 숫자인지 확인
+                        boolean isCardNumber = true;
+                        StringBuilder cardNumber = new StringBuilder(text);
+
+                        for (int j = 1; j <= 3; j++) {
+                            JSONObject nextField = fields.getJSONObject(i + j);
+                            if (nextField.has("inferText") && nextField.getString("inferText").matches("\\d{4}")) {
+                                cardNumber.append(" ").append(nextField.getString("inferText"));
+                            } else {
+                                isCardNumber = false;
+                                break;
                             }
-                            formatted.append(cardNumber.substring(i, Math.min(i + 4, cardNumber.length())));
                         }
-                        return formatted.toString();
+
+                        if (isCardNumber) {
+                            return cardNumber.toString();
+                        }
                     }
-                    return cardNumber;
                 }
             }
-            log.warn("카드 번호 필드를 찾을 수 없습니다.");
-            return "";
-        } catch (JSONException e) {
-            log.error("카드 번호 추출 중 오류 발생: {}", e.getMessage());
-            return "";
+
+            log.debug("카드 번호를 찾을 수 없습니다.");
+            return null;
+        } catch (Exception e) {
+            log.error("카드 번호 추출 중 오류 발생: {}", e.getMessage(), e);
+            return null;
         }
     }
 
     /**
-     * 신용카드 결과에서 유효기간을 추출합니다.
+     * fields 배열에서 유효기간을 추출합니다.
      */
-    private String extractExpiryDateFromCreditCard(JSONObject creditCardResult) {
+    private String extractExpiryDateFromFields(JSONArray fields) {
         try {
-            if (creditCardResult.has("validThru")) {
-                JSONObject validThruObj = creditCardResult.getJSONObject("validThru");
-                if (validThruObj.has("text")) {
-                    String expiryDate = validThruObj.getString("text");
-                    // 이미 MM/YY 형식이면 그대로 반환
-                    if (expiryDate.matches("\\d{2}/\\d{2}")) {
-                        return expiryDate;
-                    }
+            // 유효기간 패턴 (MM/YY 또는 MM/YYYY 형식)
+            Pattern expiryPattern = Pattern.compile("(0[1-9]|1[0-2])/([0-9]{2}|[0-9]{4})");
+            Pattern validThruPattern = Pattern.compile("VALID\\s+THRU");
 
-                    // 숫자만 추출
-                    String numbers = expiryDate.replaceAll("[^0-9]", "");
-                    if (numbers.length() >= 4) {
-                        return numbers.substring(0, 2) + "/" + numbers.substring(2, 4);
+            // VALID THRU 텍스트 다음에 오는 필드 확인
+            for (int i = 0; i < fields.length(); i++) {
+                JSONObject field = fields.getJSONObject(i);
+                if (field.has("inferText")) {
+                    String text = field.getString("inferText");
+                    if (validThruPattern.matcher(text).find() && i + 1 < fields.length()) {
+                        // VALID THRU 다음 필드가 유효기간일 가능성이 높음
+                        JSONObject nextField = fields.getJSONObject(i + 1);
+                        if (nextField.has("inferText")) {
+                            String nextText = nextField.getString("inferText");
+                            Matcher matcher = expiryPattern.matcher(nextText);
+                            if (matcher.find()) {
+                                return matcher.group();
+                            }
+                        }
                     }
-                    return expiryDate;
                 }
             }
-            log.warn("유효기간 필드를 찾을 수 없습니다.");
-            return "";
-        } catch (JSONException e) {
-            log.error("유효기간 추출 중 오류 발생: {}", e.getMessage());
-            return "";
+
+            // 모든 필드에서 유효기간 패턴 검색
+            for (int i = 0; i < fields.length(); i++) {
+                JSONObject field = fields.getJSONObject(i);
+                if (field.has("inferText")) {
+                    String text = field.getString("inferText");
+                    Matcher matcher = expiryPattern.matcher(text);
+                    if (matcher.find()) {
+                        return matcher.group();
+                    }
+                }
+            }
+
+            log.debug("유효기간을 찾을 수 없습니다.");
+            return null;
+        } catch (Exception e) {
+            log.error("유효기간 추출 중 오류 발생: {}", e.getMessage(), e);
+            return null;
         }
     }
 
     /**
-     * OCR 결과에서 카드 소유자 이름을 추출합니다.
+     * fields 배열에서 카드 소유자 이름을 추출합니다.
      */
-    private String extractCardHolder(JSONObject imageResult) {
+    private String extractCardHolderFromFields(JSONArray fields) {
         try {
             // 현재 Naver CLOVA OCR API는 카드 소유자 이름을 직접 제공하지 않습니다.
-            // 따라서 이 메서드는 빈 문자열을 반환합니다.
-            // 향후 API가 업데이트되면 이 메서드를 수정할 수 있습니다.
-            log.warn("카드 소유자 이름 필드는 현재 API에서 제공되지 않습니다.");
-            return "";
-        } catch (JSONException e) {
+            // 카드 소유자 이름은 일반적으로 카드 번호 아래에 위치합니다.
+            // 하지만 정확한 추출은 어려울 수 있으므로 null을 반환합니다.
+            return null;
+        } catch (Exception e) {
             log.error("카드 소유자 이름 추출 중 오류 발생: {}", e.getMessage());
-            return "";
+            return null;
         }
     }
 
