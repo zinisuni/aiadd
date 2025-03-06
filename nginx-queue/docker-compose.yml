@@ -1,0 +1,37 @@
+services:
+  nginx:
+    image: openresty/openresty:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./public:/usr/share/nginx/html
+    depends_on:
+      - api
+      - redis
+      - test-app
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - MAX_CONCURRENT_USERS=100
+      - ESTIMATED_SESSION_TIME=300
+    depends_on:
+      - redis
+
+  test-app:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    command: node test-app.js
+    ports:
+      - "8080:8080"
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"

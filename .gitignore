@@ -170,3 +170,10 @@ build/
 .gradle/
 .idea/
 .vscode/
+*.gz
+*.zip
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.wim
