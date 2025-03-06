@@ -29,25 +29,6 @@ docker-compose up --build
 - API 서버: http://localhost:8000/api/queue/status
 - 테스트 앱: http://localhost:8080
 
-### 트러블슈팅
-
-1. localhost 접속 안될 때:
-```bash
-# 컨테이너 상태 확인
-docker-compose ps
-
-# 각 서비스 로그 확인
-docker-compose logs nginx
-docker-compose logs api
-docker-compose logs test-app
-docker-compose logs redis
-```
-
-2. 일반적인 문제 해결:
-- 포트 충돌: 8000, 3000, 6379, 8080 포트가 사용 중인지 확인
-- 권한 문제: Docker 권한 확인
-- 네트워크 문제: Docker 네트워크 상태 확인
-
 ## 테스트
 
 ### Playwright 테스트 실행
@@ -56,24 +37,96 @@ docker-compose logs redis
 ```bash
 cd tests
 npm install
+npx playwright install  # Playwright 브라우저 설치
 ```
 
-2. 테스트 실행:
+2. 테스트 실행 방법:
 ```bash
+# 전체 테스트 실행
 npm test
+
+# UI 모드로 테스트 실행 (브라우저 표시)
+npm run test:headed
+
+# 디버그 모드로 테스트 실행
+npm run test:debug
 ```
 
-### 수동 테스트 방법
+3. 동시 접속 테스트:
+```bash
+# 특정 테스트만 실행
+npm test -- tests/queue.spec.ts
+
+# 특정 테스트 케이스만 실행
+npm test -- -g "should redirect to waiting page when over capacity"
+```
+
+4. 테스트 결과 확인:
+- 테스트 실행 후 `playwright-report` 디렉토리에서 HTML 리포트 확인
+- `test-results` 디렉토리에서 실패한 테스트의 스크린샷과 트레이스 확인
+
+### 테스트 시나리오
 
 1. 동시 접속 테스트:
-- 여러 브라우저 창 또는 시크릿 창으로 http://localhost:8000 접속
-- 100명 초과 시 대기열 페이지로 자동 리다이렉트
+- 100명 이하 접속 시 메인 페이지 표시
+- 100명 초과 접속 시 대기 페이지로 리다이렉트
+- 대기열 정보 표시 (대기 인원, 예상 시간)
+- 순서가 되면 자동으로 메인 페이지로 이동
 
-2. 대기열 동작 확인:
-- 대기 인원 수 표시 확인
-- 예상 대기 시간 표시 확인
-- 진행 상태바 동작 확인
-- 자동 새로고침 동작 확인
+2. 대기열 동작 테스트:
+- 대기열 상태 자동 업데이트
+- 진행 상태바 동작
+- 예상 대기 시간 계산
+- 대기열 순서 관리
+
+### 테스트 커스터마이징
+
+`tests/playwright.config.ts` 파일에서 다음 설정을 변경할 수 있습니다:
+
+```typescript
+{
+  // 병렬 실행 설정
+  workers: process.env.CI ? 1 : undefined,
+
+  // 재시도 횟수
+  retries: process.env.CI ? 2 : 0,
+
+  // 타임아웃 설정
+  timeout: 120 * 1000,
+
+  // 테스트할 브라우저 설정
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+  ],
+}
+```
+
+### 트러블슈팅
+
+1. 테스트 실패 시:
+```bash
+# 상세 로그 확인
+npm test -- --debug
+
+# 특정 브라우저만 테스트
+npm test -- --project=chromium
+```
+
+2. 일반적인 문제 해결:
+- 포트 충돌: 8000, 3000, 6379, 8080 포트가 사용 중인지 확인
+- 권한 문제: Docker 권한 확인
+- 네트워크 문제: Docker 네트워크 상태 확인
 
 ## 환경 설정
 
