@@ -25,12 +25,12 @@ async function getCurrentUsers() {
 }
 
 async function getQueuePosition(userId) {
-    const position = await redisClient.zrank('queue', userId);
+    const position = await redisClient.zScore('queue', userId);
     return position !== null ? position + 1 : null;
 }
 
 async function getQueueLength() {
-    return await redisClient.zcard('queue');
+    return await redisClient.zCard('queue');
 }
 
 // 대기열 상태 확인 API
@@ -43,7 +43,7 @@ app.get('/api/queue/status', async (req, res) => {
 
         if (currentUsers < MAX_CONCURRENT_USERS) {
             // 바로 입장 가능
-            await redisClient.zrem('queue', userId);
+            await redisClient.zRem('queue', userId);
             return res.json({
                 canProceed: true,
                 redirectUrl: '/',
@@ -55,7 +55,7 @@ app.get('/api/queue/status', async (req, res) => {
 
         if (!queuePosition) {
             // 대기열에 추가
-            await redisClient.zadd('queue', Date.now(), userId);
+            await redisClient.zAdd('queue', { score: Date.now(), value: userId });
         }
 
         const estimatedWaitTime = Math.ceil((queuePosition * ESTIMATED_SESSION_TIME) / MAX_CONCURRENT_USERS);
