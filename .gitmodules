@@ -1,0 +1,3 @@
+[submodule "src/aiadd/ocr/google-ocr"]
+	path = src/aiadd/ocr/google-ocr
+	url = /Users/hspark/Code/hspark/aiadd/.git/modules/google-ocr
