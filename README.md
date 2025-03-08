@@ -25,6 +25,47 @@
 ### 현재 서브모듈
 - **google-ocr**: OCR 기능을 제공하는 독립적인 서비스 모듈 (`src/aiadd/ocr/google-ocr`)
 
+### 서브모듈 생성 및 등록
+
+1. **기존 하위 디렉토리를 서브모듈로 변환**:
+```bash
+# 1. 하위 디렉토리가 이미 Git 저장소인 경우
+cd src/aiadd/ocr/google-ocr  # 하위 디렉토리로 이동
+git status  # Git 저장소 확인
+
+# 2. 메인 저장소에서 해당 디렉토리 제거 (파일은 유지)
+cd ../../../..  # 메인 프로젝트 루트로 이동
+git rm --cached -r src/aiadd/ocr/google-ocr
+
+# 3. 하위 저장소를 베어(bare) 저장소로 복제
+mkdir -p .git/modules/google-ocr
+cd src/aiadd/ocr/google-ocr
+git clone --bare . ../../../../.git/modules/google-ocr
+
+# 4. 서브모듈로 등록
+cd ../../../..  # 메인 프로젝트 루트로 이동
+git submodule add /absolute/path/to/repo src/aiadd/ocr/google-ocr
+git commit -m "Add google-ocr as submodule"
+```
+
+2. **새로운 서브모듈 생성**:
+```bash
+# 1. 새 디렉토리 생성 및 초기화
+mkdir -p src/aiadd/new-module
+cd src/aiadd/new-module
+git init
+
+# 2. 초기 파일 생성 및 커밋
+echo "# New Module" > README.md
+git add README.md
+git commit -m "Initial commit"
+
+# 3. 서브모듈로 등록
+cd ../../..  # 메인 프로젝트 루트로 이동
+git submodule add ./src/aiadd/new-module
+git commit -m "Add new-module as submodule"
+```
+
 ### 서브모듈 사용법
 
 1. **프로젝트 클론**:
@@ -54,6 +95,23 @@ cd ../../../..  # 프로젝트 루트로 이동
 git add src/aiadd/ocr/google-ocr
 git commit -m "Update google-ocr submodule"
 ```
+
+### 서브모듈 관리 주의사항
+
+1. **서브모듈 변환 시 주의사항**:
+   - 하위 디렉토리의 Git 이력 보존 여부 결정
+   - 메인 저장소와의 충돌 방지
+   - 절대 경로/상대 경로 선택 시 프로젝트 이동성 고려
+
+2. **작업 순서 준수**:
+   - 항상 서브모듈 내부에서 먼저 변경사항 커밋
+   - 메인 저장소에서 서브모듈 변경사항 커밋
+   - 서브모듈 브랜치 관리 주의
+
+3. **협업 시 유의사항**:
+   - 팀원들에게 서브모듈 사용 공지
+   - clone 시 --recursive 옵션 사용 강조
+   - 서브모듈 업데이트 절차 공유
 
 ### 디렉토리 구조
 ```
