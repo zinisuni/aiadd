@@ -176,4 +176,5 @@ build/
 *.tar.gz
 *.tar.bz2
 *.tar.xz
-*.tar.wimdocs/development/diagrams/images/
+*.tar.wim
+docs/**/images
