@@ -1,0 +1,28 @@
+FROM debian:bullseye-slim
+
+# Install Asterisk and dependencies
+RUN apt-get update && apt-get install -y \
+    asterisk \
+    asterisk-mysql \
+    asterisk-dahdi \
+    asterisk-modules \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy configuration files
+COPY config/asterisk/sip.conf /etc/asterisk/
+COPY config/asterisk/extensions.conf /etc/asterisk/
+COPY config/asterisk/queues.conf /etc/asterisk/
+COPY config/asterisk/modules.conf /etc/asterisk/
+
+# Create directory for sound files
+RUN mkdir -p /var/lib/asterisk/sounds/custom
+
+# Create log directory and set permissions
+RUN mkdir -p /var/log/asterisk && \
+    chown -R asterisk:asterisk /var/log/asterisk
+
+# Expose necessary ports
+EXPOSE 5060/udp 5060/tcp 4573 10000-20000/udp
+
+# Start Asterisk
+CMD ["asterisk", "-f"]

@@ -1,0 +1,6 @@
+node_modules/
+.env
+*.gsm
+sounds/
+npm-debug.log
+docker-compose.override.yml

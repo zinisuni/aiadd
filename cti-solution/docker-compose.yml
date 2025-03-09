@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+      - "4573:4573"
+    environment:
+      - NODE_ENV=production
+      - AMI_HOST=asterisk
+      - AMI_PORT=5038
+      - AMI_USERNAME=admin
+      - AMI_PASSWORD=password
+    depends_on:
+      - asterisk
+    networks:
+      - cti-network
+
+  asterisk:
+    build:
+      context: .
+      dockerfile: Dockerfile.asterisk
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+    volumes:
+      - ./sounds:/var/lib/asterisk/sounds/custom
+      - ./logs:/var/log/asterisk
+    networks:
+      - cti-network
+
+  elasticsearch:
+    image: elasticsearch:7.9.3
+    environment:
+      - discovery.type=single-node
+    volumes:
+      - elastic_data:/usr/share/elasticsearch/data
+
+  kibana:
+    image: kibana:7.9.3
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+networks:
+  cti-network:
+    driver: bridge
+
+volumes:
+  elastic_data:

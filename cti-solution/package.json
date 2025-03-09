@@ -1,21 +1,26 @@
 {
   "name": "cti-solution",
   "version": "1.0.0",
-  "description": "## 프로젝트 구조 ``` cti-solution/ ├── src/              # 소스 코드 │   ├── server/       # 백엔드 서버 코드 │   ├── client/       # 프론트엔드 코드 │   └── lib/          # 공통 라이브러리 ├── docs/             # 문서 │   ├── api/          # API 문서 │   ├── setup/        # 설치 가이드 │   └── design/       # 설계 문서 ├── config/           # 설정 파일 │   ├── dev/          # 개발 환경 설정 │   └── prod/         # 운영 환경 설정 └── scripts/          # 유틸리티 스크립트     ├── setup/        # 환경 설정 스크립트     └── deploy/       # 배포 스크립트 ```",
-  "main": "index.js",
+  "description": "Asterisk based CTI solution",
+  "main": "src/server.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
   },
-  "keywords": [],
+  "keywords": ["asterisk", "cti", "voip"],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "twilio": "^5.4.5"
+    "agi-node": "^0.0.9",
+    "asterisk.io": "^0.1.1",
+    "express": "^4.18.2",
+    "dotenv": "^16.4.7"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
 }
