@@ -1,3 +1,6 @@
 [submodule "src/aiadd/ocr/google-ocr"]
 	path = src/aiadd/ocr/google-ocr
 	url = /Users/hspark/Code/hspark/aiadd/.git/modules/google-ocr
+[submodule "src/aiadd/redirect-test"]
+    path = src/aiadd/redirect-test
+    url = ./.git/modules/redirect-test
