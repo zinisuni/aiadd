@@ -24,46 +24,51 @@
 
 ### 현재 서브모듈
 - **google-ocr**: OCR 기능을 제공하는 독립적인 서비스 모듈 (`src/aiadd/ocr/google-ocr`)
+- **redirect-test**: 리다이렉트 테스트를 위한 독립적인 서비스 모듈 (`src/aiadd/redirect-test`)
 
-### 서브모듈 생성 및 등록
+### 서브모듈 생성 및 등록 방법
 
-1. **기존 하위 디렉토리를 서브모듈로 변환**:
+#### 1. 기존 디렉토리를 서브모듈로 변환하는 방법
+
 ```bash
-# 1. 하위 디렉토리가 이미 Git 저장소인 경우
-cd src/aiadd/ocr/google-ocr  # 하위 디렉토리로 이동
-git status  # Git 저장소 확인
+# 1. 메인 저장소에서 해당 디렉토리 제거 (인덱스에서만 제거, 파일은 유지)
+git rm --cached -r src/aiadd/your-module
 
-# 2. 메인 저장소에서 해당 디렉토리 제거 (파일은 유지)
-cd ../../../..  # 메인 프로젝트 루트로 이동
-git rm --cached -r src/aiadd/ocr/google-ocr
+# 2. 해당 디렉토리가 이미 Git 저장소인지 확인
+cd src/aiadd/your-module
+git status
 
-# 3. 하위 저장소를 베어(bare) 저장소로 복제
-mkdir -p .git/modules/google-ocr
-cd src/aiadd/ocr/google-ocr
-git clone --bare . ../../../../.git/modules/google-ocr
+# 3. .git/modules/ 디렉토리에 bare 레포지토리 생성
+cd ../../../  # 메인 프로젝트 루트로 이동
+mkdir -p .git/modules/your-module
+cp -r src/aiadd/your-module/.git/* .git/modules/your-module/
 
-# 4. 서브모듈로 등록
-cd ../../../..  # 메인 프로젝트 루트로 이동
-git submodule add /absolute/path/to/repo src/aiadd/ocr/google-ocr
-git commit -m "Add google-ocr as submodule"
+# 4. 서브모듈 디렉토리의 .git 파일 설정
+cd src/aiadd/your-module
+rm -rf .git
+echo "gitdir: ../../../.git/modules/your-module" > .git
+
+# 5. .gitmodules 파일에 서브모듈 정보 추가
+cd ../../..  # 메인 프로젝트 루트로 이동
+echo '[submodule "your-module"]' >> .gitmodules
+echo '    path = src/aiadd/your-module' >> .gitmodules
+echo '    url = ./.git/modules/your-module' >> .gitmodules
+
+# 6. 서브모듈 초기화 및 업데이트
+git submodule init
+git submodule update
+
+# 7. 변경사항 커밋
+git add .gitmodules src/aiadd/your-module
+git commit -m "feat: your-module을 서브모듈로 추가"
 ```
 
-2. **새로운 서브모듈 생성**:
+#### 2. 원격 저장소를 서브모듈로 추가하는 방법
+
 ```bash
-# 1. 새 디렉토리 생성 및 초기화
-mkdir -p src/aiadd/new-module
-cd src/aiadd/new-module
-git init
-
-# 2. 초기 파일 생성 및 커밋
-echo "# New Module" > README.md
-git add README.md
-git commit -m "Initial commit"
-
-# 3. 서브모듈로 등록
-cd ../../..  # 메인 프로젝트 루트로 이동
-git submodule add ./src/aiadd/new-module
-git commit -m "Add new-module as submodule"
+# 원격 저장소를 서브모듈로 추가
+git submodule add https://github.com/username/repo.git src/aiadd/your-module
+git commit -m "feat: your-module 서브모듈 추가"
 ```
 
 ### 서브모듈 사용법
@@ -80,20 +85,20 @@ git submodule update --init --recursive
 ```bash
 git submodule update --remote  # 모든 서브모듈을 최신 버전으로 업데이트
 # 또는
-cd src/aiadd/ocr/google-ocr  # 특정 서브모듈 업데이트
+cd src/aiadd/your-module  # 특정 서브모듈 업데이트
 git pull origin main
 ```
 
 3. **서브모듈 작업**:
 ```bash
-cd src/aiadd/ocr/google-ocr
+cd src/aiadd/your-module
 git checkout main
 # 작업 수행
 git add .
 git commit -m "작업 내용"
 cd ../../../..  # 프로젝트 루트로 이동
-git add src/aiadd/ocr/google-ocr
-git commit -m "Update google-ocr submodule"
+git add src/aiadd/your-module
+git commit -m "Update your-module submodule"
 ```
 
 ### 서브모듈 관리 주의사항
@@ -112,6 +117,29 @@ git commit -m "Update google-ocr submodule"
    - 팀원들에게 서브모듈 사용 공지
    - clone 시 --recursive 옵션 사용 강조
    - 서브모듈 업데이트 절차 공유
+
+4. **서브모듈 삭제 방법**:
+```bash
+# 1. .gitmodules 파일에서 해당 서브모듈 항목 제거
+# 2. .git/config 파일에서 해당 서브모듈 항목 제거
+# 3. 서브모듈 디렉토리 제거
+git rm --cached path/to/submodule
+rm -rf path/to/submodule
+rm -rf .git/modules/submodule_name
+# 4. 변경사항 커밋
+git commit -m "Remove submodule"
+```
+
+5. **서브모듈 URL 변경 방법**:
+```bash
+# .gitmodules 파일 수정
+git config --file=.gitmodules submodule.your-module.url NEW_URL
+# 서브모듈 동기화
+git submodule sync
+# 변경사항 커밋
+git add .gitmodules
+git commit -m "Update submodule URL"
+```
 
 ### 디렉토리 구조
 ```
