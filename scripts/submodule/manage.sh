@@ -1,27 +1,74 @@
-#!/bin/zsh
+#!/usr/bin/env bash
+# 쉘 스크립트 자동 감지 - #!/bin/zsh에서 변경
+# /usr/bin/env를 사용해 시스템에 설치된 bash를 사용
 
 # 서브모듈 관리 스크립트
 # 사용법: ./manage.sh [명령] [옵션]
 
-# 사용자의 zsh 설정 로드 시도
-if [ -f "$HOME/.zshrc" ]; then
-    source "$HOME/.zshrc" 2>/dev/null
+# 현재 쉘 환경 감지 및 설정 로드
+if [ -n "$ZSH_VERSION" ]; then
+    DETECTED_SHELL="zsh"
+    [ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc" 2>/dev/null || true
+elif [ -n "$BASH_VERSION" ]; then
+    DETECTED_SHELL="bash"
+    [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc" 2>/dev/null || true
+else
+    DETECTED_SHELL="sh"
+    [ -f "$HOME/.profile" ] && source "$HOME/.profile" 2>/dev/null || true
 fi
 
 # 시스템 기본 PATH 설정
 export PATH="$HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
-# git 및 sed 명령어 경로 확인
-GIT_CMD=$(which git)
-SED_CMD=$(which sed)
+# 명령어 경로 찾기 유틸리티 함수
+find_command_path() {
+    local cmd="$1"
+    local default_path="$2"
+    local cmd_path=""
 
-if [ -z "$GIT_CMD" ]; then
-    GIT_CMD="/usr/bin/git"
-fi
+    # 방법 1: command -v 사용 (which보다 이식성 좋음)
+    cmd_path=$(command -v "$cmd" 2>/dev/null || echo "")
 
-if [ -z "$SED_CMD" ]; then
-    SED_CMD="/usr/bin/sed"
-fi
+    # 방법 2: 직접 경로 확인
+    if [ -z "$cmd_path" ]; then
+        for dir in /bin /usr/bin /usr/local/bin /opt/homebrew/bin; do
+            if [ -x "$dir/$cmd" ]; then
+                cmd_path="$dir/$cmd"
+                break
+            fi
+        done
+    fi
+
+    # 결과 출력
+    if [ -n "$cmd_path" ]; then
+        echo "$cmd_path"
+    else
+        echo "$default_path"
+    fi
+}
+
+# 자주 사용하는 명령어 경로 설정
+GIT_CMD=$(find_command_path "git" "/usr/bin/git")
+SED_CMD=$(find_command_path "sed" "/usr/bin/sed")
+AWK_CMD=$(find_command_path "awk" "/usr/bin/awk")
+GREP_CMD=$(find_command_path "grep" "/usr/bin/grep")
+MKDIR_CMD=$(find_command_path "mkdir" "/bin/mkdir")
+CP_CMD=$(find_command_path "cp" "/bin/cp")
+RM_CMD=$(find_command_path "rm" "/bin/rm")
+
+# OS 감지
+case "$(uname -s)" in
+    Darwin*)  OS_TYPE="macos" ;;
+    Linux*)   OS_TYPE="linux" ;;
+    CYGWIN*)  OS_TYPE="cygwin" ;;
+    MINGW*)   OS_TYPE="windows" ;;
+    *)        OS_TYPE="unknown" ;;
+esac
+
+# 초기 진단 정보 출력 (디버깅용, 실제 실행시 주석 처리 가능)
+# echo "실행 환경: $DETECTED_SHELL 쉘, $OS_TYPE 운영체제"
+# echo "Git 경로: $GIT_CMD"
+# echo "Sed 경로: $SED_CMD"
 
 # 색상 정의
 RED='\033[0;31m'
@@ -31,11 +78,24 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 프로젝트 루트 디렉토리 설정
-PROJECT_ROOT="$($GIT_CMD rev-parse --show-toplevel)"
+PROJECT_ROOT="$($GIT_CMD rev-parse --show-toplevel 2>/dev/null)"
 if [ -z "$PROJECT_ROOT" ]; then
     echo -e "${RED}오류: Git 저장소가 아닙니다.${NC}"
     exit 1
 fi
+
+# 유틸리티 함수
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $*" >&2
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $*" >&2
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $*" >&2
+}
 
 # 도움말 출력
 function show_help {
@@ -62,7 +122,7 @@ function show_help {
 # 로컬 디렉토리를 서브모듈로 추가
 function add_local_submodule {
     if [ $# -lt 2 ]; then
-        echo -e "${RED}오류: 경로와 이름을 지정해야 합니다.${NC}"
+        log_error "경로와 이름을 지정해야 합니다."
         echo "사용법: $0 add-local [경로] [이름]"
         exit 1
     fi
@@ -70,17 +130,17 @@ function add_local_submodule {
     local MODULE_PATH="$1"
     local MODULE_NAME="$2"
 
-    echo -e "${YELLOW}로컬 디렉토리 '$MODULE_PATH'를 '$MODULE_NAME' 서브모듈로 추가합니다...${NC}"
+    log_info "로컬 디렉토리 '$MODULE_PATH'를 '$MODULE_NAME' 서브모듈로 추가합니다..."
 
     # 1. 디렉토리가 존재하는지 확인
     if [ ! -d "$MODULE_PATH" ]; then
-        echo -e "${RED}오류: '$MODULE_PATH' 디렉토리가 존재하지 않습니다.${NC}"
+        log_error "'$MODULE_PATH' 디렉토리가 존재하지 않습니다."
         exit 1
     fi
 
     # 2. 디렉토리가 Git 저장소인지 확인
     if [ ! -d "$MODULE_PATH/.git" ]; then
-        echo -e "${RED}오류: '$MODULE_PATH'는 Git 저장소가 아닙니다.${NC}"
+        log_error "'$MODULE_PATH'는 Git 저장소가 아닙니다."
         exit 1
     fi
 
@@ -90,23 +150,29 @@ function add_local_submodule {
 
     # 4. .git/modules/ 디렉토리에 bare 레포지토리 생성
     echo "Bare 레포지토리 생성 중..."
-    mkdir -p "$PROJECT_ROOT/.git/modules/$MODULE_NAME"
-    cp -r "$MODULE_PATH/.git/"* "$PROJECT_ROOT/.git/modules/$MODULE_NAME/"
+    $MKDIR_CMD -p "$PROJECT_ROOT/.git/modules/$MODULE_NAME"
+    $CP_CMD -r "$MODULE_PATH/.git/"* "$PROJECT_ROOT/.git/modules/$MODULE_NAME/"
 
     # 5. 서브모듈 디렉토리의 .git 파일 설정
     echo "서브모듈 .git 파일 설정 중..."
-    rm -rf "$MODULE_PATH/.git"
+    $RM_CMD -rf "$MODULE_PATH/.git"
 
     # 상대 경로 계산
-    local REL_PATH=$(python -c "import os.path; print(os.path.relpath('$PROJECT_ROOT/.git/modules/$MODULE_NAME', '$(dirname "$MODULE_PATH")'))")
+    local REL_PATH
+    if command -v python >/dev/null 2>&1; then
+        REL_PATH=$(python -c "import os.path; print(os.path.relpath('$PROJECT_ROOT/.git/modules/$MODULE_NAME', '$(dirname "$MODULE_PATH")'))")
+    else
+        # python이 없는 경우 직접 경로 지정
+        REL_PATH="../../.git/modules/$MODULE_NAME"
+    fi
     echo "gitdir: $REL_PATH" > "$MODULE_PATH/.git"
 
     # 6. .gitmodules 파일에 서브모듈 정보 추가
     echo ".gitmodules 파일 업데이트 중..."
     if [ -f "$PROJECT_ROOT/.gitmodules" ]; then
         # 이미 해당 서브모듈이 있는지 확인
-        if grep -q "\\[submodule \"$MODULE_NAME\"\\]" "$PROJECT_ROOT/.gitmodules"; then
-            echo -e "${YELLOW}경고: '$MODULE_NAME' 서브모듈이 이미 .gitmodules 파일에 존재합니다.${NC}"
+        if $GREP_CMD -q "\\[submodule \"$MODULE_NAME\"\\]" "$PROJECT_ROOT/.gitmodules"; then
+            log_warn "'$MODULE_NAME' 서브모듈이 이미 .gitmodules 파일에 존재합니다."
         else
             echo "[submodule \"$MODULE_NAME\"]" >> "$PROJECT_ROOT/.gitmodules"
             echo "    path = $MODULE_PATH" >> "$PROJECT_ROOT/.gitmodules"
@@ -122,7 +188,7 @@ function add_local_submodule {
     echo "서브모듈 초기화 및 업데이트 중..."
     cd "$PROJECT_ROOT" && $GIT_CMD submodule init && $GIT_CMD submodule update
 
-    echo -e "${GREEN}서브모듈 '$MODULE_NAME'이 성공적으로 추가되었습니다.${NC}"
+    log_info "서브모듈 '$MODULE_NAME'이 성공적으로 추가되었습니다."
     echo "변경사항을 커밋하려면 다음 명령을 실행하세요:"
     echo "$GIT_CMD add .gitmodules $MODULE_PATH"
     echo "$GIT_CMD commit -m \"feat: $MODULE_NAME 서브모듈 추가\""
@@ -131,7 +197,7 @@ function add_local_submodule {
 # 원격 저장소를 서브모듈로 추가
 function add_remote_submodule {
     if [ $# -lt 2 ]; then
-        echo -e "${RED}오류: URL과 경로를 지정해야 합니다.${NC}"
+        log_error "URL과 경로를 지정해야 합니다."
         echo "사용법: $0 add-remote [URL] [경로]"
         exit 1
     fi
@@ -139,17 +205,17 @@ function add_remote_submodule {
     local REPO_URL="$1"
     local MODULE_PATH="$2"
 
-    echo -e "${YELLOW}원격 저장소 '$REPO_URL'를 '$MODULE_PATH' 경로에 서브모듈로 추가합니다...${NC}"
+    log_info "원격 저장소 '$REPO_URL'를 '$MODULE_PATH' 경로에 서브모듈로 추가합니다..."
 
     # 서브모듈 추가
     cd "$PROJECT_ROOT" && $GIT_CMD submodule add "$REPO_URL" "$MODULE_PATH"
 
     if [ $? -eq 0 ]; then
-        echo -e "${GREEN}서브모듈이 성공적으로 추가되었습니다.${NC}"
+        log_info "서브모듈이 성공적으로 추가되었습니다."
         echo "변경사항을 커밋하려면 다음 명령을 실행하세요:"
         echo "$GIT_CMD commit -m \"feat: $(basename "$MODULE_PATH") 서브모듈 추가\""
     else
-        echo -e "${RED}서브모듈 추가 중 오류가 발생했습니다.${NC}"
+        log_error "서브모듈 추가 중 오류가 발생했습니다."
     fi
 }
 
@@ -158,13 +224,13 @@ function update_submodule {
     cd "$PROJECT_ROOT"
 
     if [ $# -eq 0 ]; then
-        echo -e "${YELLOW}모든 서브모듈을 업데이트합니다...${NC}"
+        log_info "모든 서브모듈을 업데이트합니다..."
         $GIT_CMD submodule update --remote
 
         if [ $? -eq 0 ]; then
-            echo -e "${GREEN}모든 서브모듈이 성공적으로 업데이트되었습니다.${NC}"
+            log_info "모든 서브모듈이 성공적으로 업데이트되었습니다."
         else
-            echo -e "${RED}서브모듈 업데이트 중 오류가 발생했습니다.${NC}"
+            log_error "서브모듈 업데이트 중 오류가 발생했습니다."
         fi
     else
         local MODULE_NAME="$1"
@@ -176,24 +242,24 @@ function update_submodule {
         fi
 
         if [ -z "$MODULE_PATH" ]; then
-            echo -e "${RED}오류: '$MODULE_NAME' 서브모듈을 찾을 수 없습니다.${NC}"
+            log_error "'$MODULE_NAME' 서브모듈을 찾을 수 없습니다."
             exit 1
         fi
 
-        echo -e "${YELLOW}'$MODULE_NAME' 서브모듈을 업데이트합니다...${NC}"
+        log_info "'$MODULE_NAME' 서브모듈을 업데이트합니다..."
 
         if [ -d "$MODULE_PATH" ]; then
             cd "$MODULE_PATH" && $GIT_CMD pull origin $($GIT_CMD rev-parse --abbrev-ref HEAD)
 
             if [ $? -eq 0 ]; then
-                echo -e "${GREEN}'$MODULE_NAME' 서브모듈이 성공적으로 업데이트되었습니다.${NC}"
+                log_info "'$MODULE_NAME' 서브모듈이 성공적으로 업데이트되었습니다."
                 echo "메인 저장소에서 변경사항을 커밋하려면 다음 명령을 실행하세요:"
                 echo "cd $PROJECT_ROOT && $GIT_CMD add $MODULE_PATH && $GIT_CMD commit -m \"chore: $MODULE_NAME 서브모듈 업데이트\""
             else
-                echo -e "${RED}서브모듈 업데이트 중 오류가 발생했습니다.${NC}"
+                log_error "서브모듈 업데이트 중 오류가 발생했습니다."
             fi
         else
-            echo -e "${RED}오류: '$MODULE_PATH' 디렉토리가 존재하지 않습니다.${NC}"
+            log_error "'$MODULE_PATH' 디렉토리가 존재하지 않습니다."
         fi
     fi
 }
@@ -201,7 +267,7 @@ function update_submodule {
 # 서브모듈 제거
 function remove_submodule {
     if [ $# -lt 1 ]; then
-        echo -e "${RED}오류: 제거할 서브모듈 이름을 지정해야 합니다.${NC}"
+        log_error "제거할 서브모듈 이름을 지정해야 합니다."
         echo "사용법: $0 remove [이름]"
         exit 1
     fi
@@ -215,11 +281,11 @@ function remove_submodule {
     fi
 
     if [ -z "$MODULE_PATH" ]; then
-        echo -e "${RED}오류: '$MODULE_NAME' 서브모듈을 찾을 수 없습니다.${NC}"
+        log_error "'$MODULE_NAME' 서브모듈을 찾을 수 없습니다."
         exit 1
     fi
 
-    echo -e "${YELLOW}'$MODULE_NAME' 서브모듈을 제거합니다...${NC}"
+    log_info "'$MODULE_NAME' 서브모듈을 제거합니다..."
 
     # 1. .gitmodules 파일에서 해당 서브모듈 항목 제거
     $GIT_CMD config -f .gitmodules --remove-section "submodule.$MODULE_NAME" 2>/dev/null
@@ -231,18 +297,18 @@ function remove_submodule {
     $GIT_CMD rm --cached "$MODULE_PATH"
 
     # 4. .git/modules에서 서브모듈 디렉토리 제거
-    rm -rf "$PROJECT_ROOT/.git/modules/$MODULE_NAME"
+    $RM_CMD -rf "$PROJECT_ROOT/.git/modules/$MODULE_NAME"
 
     # 5. 서브모듈 디렉토리 제거 여부 확인
     read -p "서브모듈 디렉토리 '$MODULE_PATH'를 삭제하시겠습니까? (y/n): " CONFIRM
     if [[ $CONFIRM =~ ^[Yy]$ ]]; then
-        rm -rf "$MODULE_PATH"
+        $RM_CMD -rf "$MODULE_PATH"
         echo "서브모듈 디렉토리가 삭제되었습니다."
     else
         echo "서브모듈 디렉토리는 유지됩니다."
     fi
 
-    echo -e "${GREEN}서브모듈 '$MODULE_NAME'이 성공적으로 제거되었습니다.${NC}"
+    log_info "서브모듈 '$MODULE_NAME'이 성공적으로 제거되었습니다."
     echo "변경사항을 커밋하려면 다음 명령을 실행하세요:"
     echo "$GIT_CMD add .gitmodules"
     echo "$GIT_CMD commit -m \"chore: $MODULE_NAME 서브모듈 제거\""
@@ -277,6 +343,7 @@ function main {
         exit 0
     fi
 
+    # 명령어 처리
     case "$1" in
         add-local)
             shift
@@ -311,5 +378,5 @@ function main {
     esac
 }
 
-# 스크립트 실행
+# 메인 함수 실행
 main "$@"

@@ -7,7 +7,29 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# 환경 설정 - 서브쉘에서 명령어를 찾지 못하는 문제 해결
+# 현재 쉘 감지
+if [ -n "$ZSH_VERSION" ]; then
+  DETECTED_SHELL="zsh"
+  [ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc" 2>/dev/null || true
+elif [ -n "$BASH_VERSION" ]; then
+  DETECTED_SHELL="bash"
+  [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc" 2>/dev/null || true
+else
+  DETECTED_SHELL="sh"
+  [ -f "$HOME/.profile" ] && source "$HOME/.profile" 2>/dev/null || true
+fi
+
+# PATH 환경 변수 설정
+export PATH="$HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+# 자주 사용하는 명령어 경로 설정
+ECHO_CMD=$(command -v echo || echo "/bin/echo")
+GREP_CMD=$(command -v grep || echo "/usr/bin/grep")
+CAT_CMD=$(command -v cat || echo "/bin/cat")
+
 echo -e "${BLUE}===== 서브쉘에서 전역 변수 동작 테스트 =====${NC}"
+echo -e "${GREEN}실행 환경: $DETECTED_SHELL 쉘${NC}"
 
 # 케이스 1: export 없는 일반 변수 (서브쉘에서 접근 가능)
 NORMAL_VAR="일반 변수"
@@ -131,4 +153,38 @@ echo "  서브쉘 내부: $SUB_RESULT"
 echo "  부모 쉘: TEMP_VAR = $TEMP_VAR (전달되지 않음)"
 echo ""
 
+# 케이스 11: 서브쉘에서 명령어 경로 문제 해결
+echo -e "${YELLOW}케이스 11: 서브쉘에서 명령어 경로 문제 해결${NC}"
+echo "1. 문제 시연 (주석 처리됨):"
+echo "  # 잘못된 방법 - 서브쉘에서 명령어를 찾지 못할 수 있음"
+echo "  # \$(grep \"pattern\" <<< \"test string\")"
+
+echo "2. 해결책 1 - 명령어 경로 변수화:"
+echo "  test string" | $GREP_CMD "string"
+echo "  결과: 성공 (미리 찾은 GREP_CMD 변수 사용)"
+
+echo "3. 해결책 2 - 서브쉘에서 PATH 설정:"
+(
+  # 서브쉘 내에서 PATH 설정
+  export PATH="$HOME/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+  grep_result=$(grep "test" <<< "test string" 2>/dev/null)
+  echo "  결과: $grep_result (서브쉘 내에서 PATH 설정)"
+)
+
+echo "4. 해결책 3 - 함수 내보내기 (bash 전용):"
+if [ -n "$BASH_VERSION" ]; then
+  # bash에서만 작동하는 함수 내보내기
+  find_in_text() {
+    grep "$1" <<< "$2"
+  }
+  export -f find_in_text
+
+  result=$(find_in_text "test" "test string")
+  echo "  결과: $result (내보낸 함수 사용)"
+else
+  echo "  결과: bash가 아니므로 함수 내보내기 테스트를 건너뜁니다."
+fi
+echo ""
+
 echo -e "${GREEN}==== 서브쉘 테스트 완료 ====${NC}"
+echo "더 자세한 내용은 루트 디렉토리의 SUBSHELL_README.md 파일을 참조하세요."
