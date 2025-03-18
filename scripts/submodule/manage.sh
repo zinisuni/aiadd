@@ -1,7 +1,27 @@
-#!/bin/bash
+#!/bin/zsh
 
 # 서브모듈 관리 스크립트
 # 사용법: ./manage.sh [명령] [옵션]
+
+# 사용자의 zsh 설정 로드 시도
+if [ -f "$HOME/.zshrc" ]; then
+    source "$HOME/.zshrc" 2>/dev/null
+fi
+
+# 시스템 기본 PATH 설정
+export PATH="$HOME/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+# git 및 sed 명령어 경로 확인
+GIT_CMD=$(which git)
+SED_CMD=$(which sed)
+
+if [ -z "$GIT_CMD" ]; then
+    GIT_CMD="/usr/bin/git"
+fi
+
+if [ -z "$SED_CMD" ]; then
+    SED_CMD="/usr/bin/sed"
+fi
 
 # 색상 정의
 RED='\033[0;31m'
@@ -11,7 +31,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 프로젝트 루트 디렉토리 설정
-PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+PROJECT_ROOT="$($GIT_CMD rev-parse --show-toplevel)"
 if [ -z "$PROJECT_ROOT" ]; then
     echo -e "${RED}오류: Git 저장소가 아닙니다.${NC}"
     exit 1
@@ -66,7 +86,7 @@ function add_local_submodule {
 
     # 3. 메인 저장소에서 해당 디렉토리 제거 (인덱스에서만 제거, 파일은 유지)
     echo "메인 저장소에서 디렉토리 제거 중..."
-    git rm --cached -r "$MODULE_PATH"
+    $GIT_CMD rm --cached -r "$MODULE_PATH"
 
     # 4. .git/modules/ 디렉토리에 bare 레포지토리 생성
     echo "Bare 레포지토리 생성 중..."
@@ -100,12 +120,12 @@ function add_local_submodule {
 
     # 7. 서브모듈 초기화 및 업데이트
     echo "서브모듈 초기화 및 업데이트 중..."
-    cd "$PROJECT_ROOT" && git submodule init && git submodule update
+    cd "$PROJECT_ROOT" && $GIT_CMD submodule init && $GIT_CMD submodule update
 
     echo -e "${GREEN}서브모듈 '$MODULE_NAME'이 성공적으로 추가되었습니다.${NC}"
     echo "변경사항을 커밋하려면 다음 명령을 실행하세요:"
-    echo "git add .gitmodules $MODULE_PATH"
-    echo "git commit -m \"feat: $MODULE_NAME 서브모듈 추가\""
+    echo "$GIT_CMD add .gitmodules $MODULE_PATH"
+    echo "$GIT_CMD commit -m \"feat: $MODULE_NAME 서브모듈 추가\""
 }
 
 # 원격 저장소를 서브모듈로 추가
@@ -122,12 +142,12 @@ function add_remote_submodule {
     echo -e "${YELLOW}원격 저장소 '$REPO_URL'를 '$MODULE_PATH' 경로에 서브모듈로 추가합니다...${NC}"
 
     # 서브모듈 추가
-    cd "$PROJECT_ROOT" && git submodule add "$REPO_URL" "$MODULE_PATH"
+    cd "$PROJECT_ROOT" && $GIT_CMD submodule add "$REPO_URL" "$MODULE_PATH"
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}서브모듈이 성공적으로 추가되었습니다.${NC}"
         echo "변경사항을 커밋하려면 다음 명령을 실행하세요:"
-        echo "git commit -m \"feat: $(basename "$MODULE_PATH") 서브모듈 추가\""
+        echo "$GIT_CMD commit -m \"feat: $(basename "$MODULE_PATH") 서브모듈 추가\""
     else
         echo -e "${RED}서브모듈 추가 중 오류가 발생했습니다.${NC}"
     fi
@@ -139,7 +159,7 @@ function update_submodule {
 
     if [ $# -eq 0 ]; then
         echo -e "${YELLOW}모든 서브모듈을 업데이트합니다...${NC}"
-        git submodule update --remote
+        $GIT_CMD submodule update --remote
 
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}모든 서브모듈이 성공적으로 업데이트되었습니다.${NC}"
@@ -152,7 +172,7 @@ function update_submodule {
 
         # .gitmodules 파일에서 서브모듈 경로 찾기
         if [ -f "$PROJECT_ROOT/.gitmodules" ]; then
-            MODULE_PATH=$(git config -f .gitmodules --get "submodule.$MODULE_NAME.path")
+            MODULE_PATH=$($GIT_CMD config -f .gitmodules --get "submodule.$MODULE_NAME.path")
         fi
 
         if [ -z "$MODULE_PATH" ]; then
@@ -163,12 +183,12 @@ function update_submodule {
         echo -e "${YELLOW}'$MODULE_NAME' 서브모듈을 업데이트합니다...${NC}"
 
         if [ -d "$MODULE_PATH" ]; then
-            cd "$MODULE_PATH" && git pull origin $(git rev-parse --abbrev-ref HEAD)
+            cd "$MODULE_PATH" && $GIT_CMD pull origin $($GIT_CMD rev-parse --abbrev-ref HEAD)
 
             if [ $? -eq 0 ]; then
                 echo -e "${GREEN}'$MODULE_NAME' 서브모듈이 성공적으로 업데이트되었습니다.${NC}"
                 echo "메인 저장소에서 변경사항을 커밋하려면 다음 명령을 실행하세요:"
-                echo "cd $PROJECT_ROOT && git add $MODULE_PATH && git commit -m \"chore: $MODULE_NAME 서브모듈 업데이트\""
+                echo "cd $PROJECT_ROOT && $GIT_CMD add $MODULE_PATH && $GIT_CMD commit -m \"chore: $MODULE_NAME 서브모듈 업데이트\""
             else
                 echo -e "${RED}서브모듈 업데이트 중 오류가 발생했습니다.${NC}"
             fi
@@ -191,7 +211,7 @@ function remove_submodule {
 
     # .gitmodules 파일에서 서브모듈 경로 찾기
     if [ -f "$PROJECT_ROOT/.gitmodules" ]; then
-        MODULE_PATH=$(git config -f .gitmodules --get "submodule.$MODULE_NAME.path")
+        MODULE_PATH=$($GIT_CMD config -f .gitmodules --get "submodule.$MODULE_NAME.path")
     fi
 
     if [ -z "$MODULE_PATH" ]; then
@@ -202,13 +222,13 @@ function remove_submodule {
     echo -e "${YELLOW}'$MODULE_NAME' 서브모듈을 제거합니다...${NC}"
 
     # 1. .gitmodules 파일에서 해당 서브모듈 항목 제거
-    git config -f .gitmodules --remove-section "submodule.$MODULE_NAME" 2>/dev/null
+    $GIT_CMD config -f .gitmodules --remove-section "submodule.$MODULE_NAME" 2>/dev/null
 
     # 2. .git/config 파일에서 해당 서브모듈 항목 제거
-    git config --remove-section "submodule.$MODULE_NAME" 2>/dev/null
+    $GIT_CMD config --remove-section "submodule.$MODULE_NAME" 2>/dev/null
 
     # 3. 인덱스에서 서브모듈 제거
-    git rm --cached "$MODULE_PATH"
+    $GIT_CMD rm --cached "$MODULE_PATH"
 
     # 4. .git/modules에서 서브모듈 디렉토리 제거
     rm -rf "$PROJECT_ROOT/.git/modules/$MODULE_NAME"
@@ -224,8 +244,8 @@ function remove_submodule {
 
     echo -e "${GREEN}서브모듈 '$MODULE_NAME'이 성공적으로 제거되었습니다.${NC}"
     echo "변경사항을 커밋하려면 다음 명령을 실행하세요:"
-    echo "git add .gitmodules"
-    echo "git commit -m \"chore: $MODULE_NAME 서브모듈 제거\""
+    echo "$GIT_CMD add .gitmodules"
+    echo "$GIT_CMD commit -m \"chore: $MODULE_NAME 서브모듈 제거\""
 }
 
 # 서브모듈 목록 표시
@@ -233,10 +253,10 @@ function list_submodules {
     echo -e "${BLUE}서브모듈 목록:${NC}"
 
     if [ -f "$PROJECT_ROOT/.gitmodules" ]; then
-        git config -f .gitmodules --get-regexp '^submodule\..*\.path$' | \
+        $GIT_CMD config -f .gitmodules --get-regexp '^submodule\..*\.path$' | \
         while read -r KEY PATH; do
-            NAME=$(echo "$KEY" | sed 's/^submodule\.\(.*\)\.path$/\1/')
-            URL=$(git config -f .gitmodules --get "submodule.$NAME.url")
+            NAME=$($SED_CMD 's/^submodule\.\(.*\)\.path$/\1/' <<< "$KEY")
+            URL=$($GIT_CMD config -f .gitmodules --get "submodule.$NAME.url")
             echo -e "${GREEN}$NAME${NC} ($PATH) - $URL"
         done
     else
@@ -247,7 +267,7 @@ function list_submodules {
 # 서브모듈 상태 확인
 function check_status {
     echo -e "${BLUE}서브모듈 상태:${NC}"
-    cd "$PROJECT_ROOT" && git submodule status
+    cd "$PROJECT_ROOT" && $GIT_CMD submodule status
 }
 
 # 메인 함수
