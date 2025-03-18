@@ -187,4 +187,4 @@ fi
 echo ""
 
 echo -e "${GREEN}==== 서브쉘 테스트 완료 ====${NC}"
-echo "더 자세한 내용은 루트 디렉토리의 SUBSHELL_README.md 파일을 참조하세요."
+echo "더 자세한 내용은 SUBSHELL_README.md 파일을 참조하세요."
