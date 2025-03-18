@@ -5,6 +5,84 @@
 # 서브모듈 관리 스크립트
 # 사용법: ./manage.sh [명령] [옵션]
 
+# 색상 정의
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# 초기 환경 검증 함수
+check_environment() {
+  echo -e "${BLUE}서브모듈 관리 스크립트 - 환경 확인${NC}"
+
+  # 1. 쉘 환경 확인
+  if [ -n "$ZSH_VERSION" ]; then
+    DETECTED_SHELL="zsh"
+  elif [ -n "$BASH_VERSION" ]; then
+    DETECTED_SHELL="bash"
+  else
+    echo -e "${RED}오류: 지원되지 않는 쉘 환경입니다. Bash 또는 Zsh를 사용해주세요.${NC}"
+    echo "현재 감지된 쉘: $SHELL"
+    echo "해결 방법: bash 또는 zsh를 설치하고 다음 명령으로 스크립트를 실행하세요:"
+    echo "  bash $(basename "$0") [명령] [옵션]"
+    echo "  zsh $(basename "$0") [명령] [옵션]"
+    return 1
+  fi
+
+  # 2. Git 확인
+  if ! command -v git &> /dev/null; then
+    echo -e "${RED}오류: git 명령어를 찾을 수 없습니다.${NC}"
+    echo "Git은 이 스크립트의 필수 요구사항입니다."
+    echo "설치 방법:"
+    echo "  macOS: brew install git"
+    echo "  Ubuntu/Debian: apt-get install git"
+    echo "  CentOS/RHEL: yum install git"
+    echo "  Windows: https://git-scm.com/download/win"
+    return 1
+  fi
+
+  # 3. 필수 명령어 확인
+  local REQUIRED_COMMANDS="sed grep mkdir cp rm"
+  local MISSING_COMMANDS=""
+
+  for cmd in $REQUIRED_COMMANDS; do
+    if ! command -v $cmd &> /dev/null; then
+      MISSING_COMMANDS="$MISSING_COMMANDS $cmd"
+    fi
+  done
+
+  if [ -n "$MISSING_COMMANDS" ]; then
+    echo -e "${RED}오류: 다음 필수 명령어를 찾을 수 없습니다:${NC}$MISSING_COMMANDS"
+    echo "이 스크립트를 실행하기 위해 필요한 기본 유틸리티를 설치해주세요."
+    echo "대부분의 시스템에서 coreutils 또는 기본 시스템 패키지가 필요합니다."
+    return 1
+  fi
+
+  # 4. Git 저장소 확인
+  if ! git rev-parse --is-inside-work-tree &> /dev/null; then
+    echo -e "${RED}오류: 현재 디렉토리는 Git 저장소가 아닙니다.${NC}"
+    echo "이 스크립트는 Git 저장소 내에서 실행되어야 합니다."
+    echo "해결 방법:"
+    echo "  1. Git 저장소로 이동하세요: cd /path/to/git/repository"
+    echo "  2. 또는 새 저장소를 초기화하세요: git init"
+    return 1
+  fi
+
+  # 환경 검증 성공
+  echo -e "${GREEN}환경 검증 성공${NC}"
+  echo "- 실행 환경: $DETECTED_SHELL 쉘"
+  echo "- Git 버전: $(git --version)"
+  echo "- 모든 필수 명령어 사용 가능"
+  return 0
+}
+
+# 초기 환경 검증 (실패 시 스크립트 종료)
+if ! check_environment; then
+  echo -e "${RED}===== 환경 검증 실패: 스크립트를 종료합니다 =====${NC}"
+  exit 1
+fi
+
 # 현재 쉘 환경 감지 및 설정 로드
 if [ -n "$ZSH_VERSION" ]; then
     DETECTED_SHELL="zsh"
@@ -69,13 +147,6 @@ esac
 # echo "실행 환경: $DETECTED_SHELL 쉘, $OS_TYPE 운영체제"
 # echo "Git 경로: $GIT_CMD"
 # echo "Sed 경로: $SED_CMD"
-
-# 색상 정의
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
 
 # 프로젝트 루트 디렉토리 설정
 PROJECT_ROOT="$($GIT_CMD rev-parse --show-toplevel 2>/dev/null)"

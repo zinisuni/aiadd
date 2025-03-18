@@ -7,6 +7,92 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# 초기 환경 검증 함수
+check_environment() {
+  echo -e "${BLUE}===== 실행 환경 검증 중 =====${NC}"
+
+  # 1. 쉘 환경 확인
+  if [ -n "$ZSH_VERSION" ]; then
+    DETECTED_SHELL="zsh"
+    # zsh 버전 확인 - 실제 명령어로 확인
+    ZSH_VERSION_OUTPUT=$(zsh --version 2>/dev/null)
+    if [ $? -ne 0 ]; then
+      echo -e "${YELLOW}⚠️ zsh 버전 확인 실패: zsh 명령을 직접 실행할 수 없습니다.${NC}"
+      echo "환경 변수 버전 정보: $ZSH_VERSION"
+    else
+      echo "zsh 버전: $ZSH_VERSION_OUTPUT"
+    fi
+  elif [ -n "$BASH_VERSION" ]; then
+    DETECTED_SHELL="bash"
+    # Bash 버전 확인 - bash --version 명령으로 직접 확인
+    BASH_VERSION_OUTPUT=$(bash --version 2>/dev/null | head -n 1)
+    if [ $? -ne 0 ]; then
+      echo -e "${RED}오류: bash 명령을 실행할 수 없습니다.${NC}"
+      echo "환경 변수 버전 정보: $BASH_VERSION"
+      return 1
+    fi
+
+    echo "Bash 버전: $BASH_VERSION_OUTPUT"
+
+    # 버전 번호 추출 (GNU bash, version 5.1.16 -> 5)
+    MAJOR_VERSION=$(echo "$BASH_VERSION_OUTPUT" | grep -oE 'version [0-9]+' | grep -oE '[0-9]+')
+
+    if [ -z "$MAJOR_VERSION" ]; then
+      echo -e "${YELLOW}⚠️ 버전 번호를 추출할 수 없습니다. 환경 변수 사용.${NC}"
+      # 환경 변수에서 추출 (대체 방법)
+      MAJOR_VERSION=$(echo $BASH_VERSION | cut -d. -f1)
+    fi
+
+    if [ "$MAJOR_VERSION" -lt 4 ]; then
+      echo -e "${RED}오류: Bash 버전이 너무 낮습니다. 4.0 이상이 필요합니다.${NC}"
+      echo "설치 방법: brew install bash (macOS) 또는 apt-get install bash (Ubuntu)"
+      return 1
+    fi
+  else
+    echo -e "${RED}오류: 지원되지 않는 쉘 환경입니다. Bash 또는 Zsh를 사용해주세요.${NC}"
+    echo "현재 감지된 쉘: $SHELL"
+    # 시스템에 bash가 설치되어 있는지 확인
+    if command -v bash &>/dev/null; then
+      echo -e "${YELLOW}bash 명령이 발견되었습니다. 다음 명령으로 실행해보세요:${NC}"
+      echo "bash $(basename $0)"
+    fi
+    return 1
+  fi
+
+  # 2. 필수 명령어 확인
+  local REQUIRED_COMMANDS="grep echo cat"
+  local MISSING_COMMANDS=""
+
+  for cmd in $REQUIRED_COMMANDS; do
+    if ! command -v $cmd &> /dev/null; then
+      MISSING_COMMANDS="$MISSING_COMMANDS $cmd"
+    fi
+  done
+
+  if [ -n "$MISSING_COMMANDS" ]; then
+    echo -e "${RED}오류: 다음 필수 명령어를 찾을 수 없습니다:${NC}$MISSING_COMMANDS"
+    echo "이 스크립트를 실행하기 위해 필요한 패키지를 설치해주세요."
+    return 1
+  fi
+
+  # 3. 서브쉘 테스트
+  local SUBSHELL_TEST=$(echo "테스트" 2>/dev/null)
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}오류: 서브쉘 실행 테스트에 실패했습니다.${NC}"
+    return 1
+  fi
+
+  # 환경 검증 성공
+  echo -e "${GREEN}환경 검증 성공:${NC} $DETECTED_SHELL 쉘, 모든 필수 명령어 사용 가능"
+  return 0
+}
+
+# 환경 검증 실행
+if ! check_environment; then
+  echo -e "${RED}===== 환경 검증 실패: 스크립트를 종료합니다 =====${NC}"
+  exit 1
+fi
+
 # 환경 설정 - 서브쉘에서 명령어를 찾지 못하는 문제 해결
 # 현재 쉘 감지
 if [ -n "$ZSH_VERSION" ]; then
