@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTTPS 인증서 만료 테스트</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>HTTPS 인증서 만료 테스트</h1>
+
+    <div class="main-sections">
+      <!-- API 테스트 방법 섹션 -->
+      <section class="test-method-section">
+        <h2>API 테스트 방법</h2>
+
+        <div class="api-selector">
+          <div class="selector-box">
+            <label for="api-select">API 선택:</label>
+            <select id="api-select" class="api-select" aria-label="테스트할 API 선택">
+              <option value="tappay">TapPay API</option>
+              <option value="boinenpay-post">Boinenpay API (로그인)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="method-selector">
+          <div class="selector-box">
+            <label for="method-select">요청 방식:</label>
+            <select id="method-select" class="api-select" aria-label="요청 방식 선택">
+              <option value="jquery">jQuery AJAX</option>
+              <option value="axios">Axios</option>
+              <option value="fetch">Fetch API</option>
+              <option value="proxy">프록시 서버 (보안 우회)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <button class="button button-send">요청 보내기</button>
+          <button id="clear-result" class="button clear">결과 지우기</button>
+          <button id="enhance-proxy" class="button enhance">프록시 서버 강화</button>
+        </div>
+      </section>
+
+      <!-- 결과 섹션 -->
+      <section class="result-section">
+        <h2>API 요청 결과</h2>
+        <div id="result" class="result-box"></div>
+      </section>
+
+      <!-- 문제 설명 섹션 -->
+      <section class="problem-section">
+        <h2>인증서 만료 문제 설명</h2>
+        <div class="warning-box">
+          <p><strong>문제:</strong> 개발 환경의 HTTPS 인증서가 만료되어 브라우저에서 직접 요청 시 오류가 발생합니다.</p>
+          <p><strong>오류 메시지:</strong> <code>Access to XMLHttpRequest at '...' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: It does not have HTTP ok status.</code></p>
+          <p>이는 실제로는 CORS 오류가 아닌, 인증서 만료로 인해 브라우저가 프리플라이트 요청을 거부하는 현상입니다.</p>
+        </div>
+      </section>
+
+      <!-- API 요청 정보 섹션 -->
+      <section class="api-info-section">
+        <div class="form-group" id="tappay-info">
+          <h2>TapPay API 요청 정보</h2>
+          <div class="info-box">
+            <p><strong>URL:</strong> https://54.180.207.85:60443/mobile/api/internal/tap/getStatus</p>
+            <p><strong>Headers:</strong></p>
+            <pre>API-TRANSACTION-TAPPAY-ARS: 123123123
+Content-Type: application/json
+Authorization: Basic dXBsdXNtb2JpbGU6Y2FsbGdhdGUtdGFwcGF5</pre>
+            <p><strong>Body:</strong></p>
+            <pre>{"clientToken": "20250305100553-5O2aPtZmFvsn-4201AC1F5DEE529A75302330"}</pre>
+          </div>
+        </div>
+
+        <div class="form-group" id="boinenpay-post-info" style="display: none;">
+          <h2>Boinenpay API (로그인) 요청 정보</h2>
+          <div class="info-box">
+            <p><strong>URL:</strong> https://dev.boinenpay.com/login</p>
+            <p><strong>Method:</strong> POST</p>
+            <p><strong>Headers:</strong></p>
+            <pre>accept: */*
+accept-language: ko,en-US;q=0.9,en;q=0.8
+cache-control: no-cache
+content-type: application/x-www-form-urlencoded; charset=UTF-8
+origin: https://dev.boinenpay.com
+pragma: no-cache
+priority: u=1, i
+referer: https://dev.boinenpay.com/login
+sec-ch-ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+sec-fetch-dest: empty
+sec-fetch-mode: cors
+sec-fetch-site: same-origin
+user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+x-requested-with: XMLHttpRequest</pre>
+            <p><strong>쿠키:</strong></p>
+            <pre>SESSION=YWMxMGNkNmUtNmNmNC00ZWNlLThiNDgtMTU4NWVjN2E1ZDU0</pre>
+            <p><strong>Body (form-urlencoded):</strong></p>
+            <pre>id=product&password=gate25!@$</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 브라우저 우회 명령어 섹션 -->
+      <section class="bypass-section">
+        <h2>CORS 우회 브라우저 명령어</h2>
+        <div class="command-box">
+          <h3>macOS:</h3>
+          <pre class="command-pre">open -n -a "Google Chrome" --args --ignore-certificate-errors --allow-insecure-localhost --disable-web-security --disable-features=OutOfBlinkCors,SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure --disable-site-isolation-trials --user-data-dir="/tmp/chrome-ultimate-$(date +%s)"</pre>
+
+          <h3>Windows:</h3>
+          <pre class="command-pre">start chrome --new-window --ignore-certificate-errors --allow-insecure-localhost --disable-web-security --disable-features=OutOfBlinkCors,SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure --disable-site-isolation-trials --user-data-dir="%TEMP%\chrome-ultimate-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%"</pre>
+        </div>
+        <div class="command-info">
+          <h4>각 옵션의 의미:</h4>
+          <ul class="option-list">
+            <li><code>--ignore-certificate-errors</code>: 만료된 인증서를 포함한 모든 인증서 오류를 무시</li>
+            <li><code>--allow-insecure-localhost</code>: localhost에 대한 인증서 경고 무시</li>
+            <li><code>--disable-web-security</code>: 동일 출처 정책(Same-Origin Policy) 비활성화</li>
+            <li><code>--disable-features=OutOfBlinkCors</code>: Blink 엔진의 CORS 보안 기능 비활성화</li>
+            <li><code>--disable-site-isolation-trials</code>: 사이트 격리(Site Isolation) 비활성화</li>
+            <li><code>--user-data-dir</code>: 새 프로필 디렉토리 사용하여 기존 설정과 충돌 방지</li>
+          </ul>
+          <p class="warning">⚠️ 이 명령어로 실행한 Chrome은 보안에 매우 취약하므로 테스트 이외의 목적으로는 사용하지 마세요.</p>
+        </div>
+      </section>
+
+      <!-- 직접 호출 시도 섹션 -->
+      <section class="direct-call-section">
+        <h2>인증서 만료 사이트 직접 호출</h2>
+        <div class="bypass-options">
+          <button id="direct-fetch-button" class="button direct">프리플라이트 없이 직접 호출</button>
+          <button id="form-post-button" class="button direct">FORM으로 직접 POST</button>
+          <button id="jsonp-button" class="button direct">JSONP 요청</button>
+        </div>
+        <div class="server-options">
+          <h3>서버 측 우회:</h3>
+          <div class="quick-actions">
+            <a href="/call-tap" target="_blank" class="button quick">서버에서 직접 API 호출</a>
+            <a href="/direct-tap" target="_blank" class="button quick">테스트 페이지 열기</a>
+            <a href="/advanced-bypass" target="_blank" class="button quick advanced">고급 우회 기법</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 추가 정보 섹션 -->
+      <section class="info-section">
+        <h2>테스트 환경 정보</h2>
+        <div class="test-box">
+          <p><strong>요청 방식 설명:</strong></p>
+          <ul>
+            <li><strong>jQuery AJAX:</strong> 기본 jQuery를 사용한 요청 (CORS 및 인증서 오류 발생 가능)</li>
+            <li><strong>Axios:</strong> Axios 라이브러리를 사용한 요청</li>
+            <li><strong>Fetch API:</strong> 브라우저 기본 Fetch API를 사용한 요청</li>
+            <li><strong>프록시 서버:</strong> 노드 프록시 서버를 통한 우회 요청 (안전하게 작동)</li>
+          </ul>
+          <p><strong>주의:</strong> 브라우저에서 직접 요청 시 CORS 정책과 인증서 오류가 발생할 수 있습니다. 이 때는 프록시 서버 방식을 사용하세요.</p>
+          <p>프록시 서버를 사용하려면 먼저 <code>npm install</code>을 실행한 후 <code>npm start</code>로 서버를 실행해야 합니다.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    // 프록시 서버 CORS 헤더 강화 버튼
+    $('#enhance-proxy').on('click', function() {
+      const url = 'http://localhost:3000/enhance-cors';
+
+      $.get(url)
+        .done(function(response) {
+          $('#result').html(`<div class="info">
+            <p>프록시 서버 CORS 헤더 강화 완료:</p>
+            <pre>${JSON.stringify(response, null, 2)}</pre>
+          </div>`);
+        })
+        .fail(function(error) {
+          $('#result').html(`<div class="error">
+            <p>프록시 서버 CORS 강화 실패:</p>
+            <pre>${JSON.stringify(error, null, 2)}</pre>
+            <p>※ 프록시 서버가 실행 중인지 확인하세요.</p>
+          </div>`);
+        });
+    });
+
+    // 프리플라이트 없이 직접 API 호출 시도
+    $('#direct-fetch-button').on('click', function() {
+      const resultBox = $('#result');
+      resultBox.html('<div class="info">프리플라이트 없이 직접 호출 시도 중...</div>');
+
+      // 방법 1: XHR로 직접 호출 (readyState 4, status 0은 성공이 아닌 네트워크 오류)
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', 'https://54.180.207.85:60443/mobile/api/internal/tap/getStatus', true);
+
+      // 헤더 설정
+      xhr.setRequestHeader('API-TRANSACTION-TAPPAY-ARS', '123123123');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('Authorization', 'Basic dXBsdXNtb2JpbGU6Y2FsbGdhdGUtdGFwcGF5');
+
+      // 완료 콜백
+      xhr.onload = function() {
+        resultBox.append(`<p class="success">XHR 응답 (status: ${xhr.status}): ${xhr.responseText}</p>`);
+      };
+
+      // 오류 콜백
+      xhr.onerror = function(e) {
+        resultBox.append(`<p class="error">XHR 오류 발생: 인증서 문제로 인한 실패. (readyState: ${xhr.readyState}, status: ${xhr.status})</p>`);
+        resultBox.append(`<p>※ status가 0이면 인증서 문제로 요청이 차단된 것입니다.</p>`);
+      };
+
+      // 요청 보내기
+      xhr.send(JSON.stringify({
+        clientToken: "20250305100553-5O2aPtZmFvsn-4201AC1F5DEE529A75302330"
+      }));
+
+      // 방법 2: Fetch로 시도 (no-cors 모드)
+      fetch('https://54.180.207.85:60443/mobile/api/internal/tap/getStatus', {
+        method: 'POST',
+        mode: 'no-cors', // 중요: CORS 검사 없이 요청 (응답은 불투명(opaque)해짐)
+        headers: {
+          'API-TRANSACTION-TAPPAY-ARS': '123123123',
+          'Content-Type': 'application/json',
+          'Authorization': 'Basic dXBsdXNtb2JpbGU6Y2FsbGdhdGUtdGFwcGF5'
+        },
+        body: JSON.stringify({
+          clientToken: "20250305100553-5O2aPtZmFvsn-4201AC1F5DEE529A75302330"
+        })
+      })
+      .then(response => {
+        resultBox.append(`<p class="info">Fetch no-cors 응답: 성공했지만 CORS 정책으로 응답 내용에 접근할 수 없습니다 (type: ${response.type})</p>`);
+        resultBox.append(`<p class="info">※ 'opaque' 응답 타입은 CORS 정책으로 인해 응답 내용을 읽을 수 없음을 의미합니다.</p>`);
+      })
+      .catch(error => {
+        resultBox.append(`<p class="error">Fetch 오류: ${error.message}</p>`);
+      });
+    });
+
+    // FORM을 사용한 직접 POST 시도
+    $('#form-post-button').on('click', function() {
+      const resultBox = $('#result');
+      resultBox.html('<div class="info">FORM을 사용한 직접 POST 시도 중...</div>');
+
+      // 숨겨진 iframe 생성
+      const iframeName = 'hiddenFrame' + Date.now();
+      const iframe = document.createElement('iframe');
+      iframe.name = iframeName;
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+
+      // iframe 로드 이벤트
+      iframe.onload = function() {
+        try {
+          resultBox.append(`<p class="info">iframe이 로드되었습니다. (참고: 보안상의 이유로 iframe 내용에 접근할 수 없을 수 있습니다)</p>`);
+
+          try {
+            // 내용 접근 시도 (대부분 실패함)
+            const content = iframe.contentDocument || iframe.contentWindow.document;
+            resultBox.append(`<p class="success">iframe 내용에 접근 성공</p>`);
+          } catch (e) {
+            resultBox.append(`<p class="error">iframe 내용 접근 오류: ${e.message}</p>`);
+          }
+        } catch (e) {
+          resultBox.append(`<p class="error">iframe 처리 오류: ${e.message}</p>`);
+        }
+      };
+
+      // 폼 생성
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://54.180.207.85:60443/mobile/api/internal/tap/getStatus';
+      form.target = iframeName;
+      form.enctype = 'text/plain'; // JSON을 텍스트로 전송
+
+      // 데이터 필드 추가 (JSON 형식을 흉내냄)
+      const inputField = document.createElement('input');
+      inputField.type = 'hidden';
+      inputField.name = '{"clientToken"'; // 따옴표를 닫지 않음
+      inputField.value = ':"20250305100553-5O2aPtZmFvsn-4201AC1F5DEE529A75302330"}'; // 값 앞에 : 추가
+
+      form.appendChild(inputField);
+      document.body.appendChild(form);
+
+      // 폼 제출
+      resultBox.append(`<p class="info">FORM POST 요청을 전송합니다...</p>`);
+      form.submit();
+
+      // 정리
+      setTimeout(() => {
+        document.body.removeChild(form);
+        resultBox.append(`<p class="info">요청이 완료되었습니다. 결과는 동일 출처 정책으로 인해 확인할 수 없을 수 있습니다.</p>`);
+        resultBox.append(`<p class="info">※ 서버 로그를 확인하여 요청이 도달했는지 확인하세요.</p>`);
+      }, 1000);
+    });
+
+    // JSONP 방식으로 요청 시도
+    $('#jsonp-button').on('click', function() {
+      const resultBox = $('#result');
+      resultBox.html('<div class="info">JSONP 방식으로 요청 시도 중...</div>');
+
+      // 콜백 함수 정의
+      window.jsonpCallback = function(data) {
+        resultBox.append('<p class="success">JSONP 응답 수신 성공!</p>');
+        resultBox.append('<pre>' + JSON.stringify(data, null, 2) + '</pre>');
+      };
+
+      // 스크립트 태그 생성
+      const script = document.createElement('script');
+      script.src = '/jsonp-tap?callback=jsonpCallback&t=' + new Date().getTime();
+
+      // 스크립트 로드 이벤트
+      script.onload = function() {
+        resultBox.append('<p class="info">스크립트 로드 완료</p>');
+      };
+
+      script.onerror = function() {
+        resultBox.append('<p class="error">JSONP 스크립트 로드 실패</p>');
+      };
+
+      // 문서에 스크립트 추가
+      document.body.appendChild(script);
+
+      // 정리
+      setTimeout(() => {
+        if (script.parentNode) {
+          document.body.removeChild(script);
+        }
+      }, 5000);
+    });
+  </script>
+</body>
+</html>
