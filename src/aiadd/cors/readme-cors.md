@@ -61,7 +61,7 @@ fetch('http://localhost:3000/api/data', {
 ```javascript
 // 성공 케이스 - CORS 설정
 const corsOptionsSuccess = {
-  origin: 'http://127.0.0.1:8080',  // 클라이언트 도메인 명시
+  origin: ['http://127.0.0.1:8080', 'http://localhost:8080'],  // 클라이언트 도메인 명시
   credentials: true,  // 중요: 인증 정보 허용
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -69,7 +69,7 @@ const corsOptionsSuccess = {
 
 // 실패 케이스 - CORS 설정
 const corsOptionsFailure = {
-  origin: 'http://127.0.0.1:8080',
+  origin: ['http://127.0.0.1:8080', 'http://localhost:8080'],
   credentials: false,  // 인증 정보 거부
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -114,7 +114,7 @@ res.cookie('strictCookie', 'strict-mode', {
    ```
 
 3. 브라우저에서 접속:
-   - 클라이언트: http://127.0.0.1:8080
+   - 클라이언트: http://localhost:8080
    - API 서버: http://localhost:3000
 
 ## 테스트 결과 해석
@@ -135,6 +135,48 @@ res.cookie('strictCookie', 'strict-mode', {
 - `SameSite=Strict`: 동일 사이트 요청에만 쿠키 전송
 - `SameSite=Lax`: 동일 사이트 + 상위 레벨 탐색(링크 클릭 등)에 쿠키 전송
 - `SameSite=None`: 모든 크로스 사이트 요청에 쿠키 전송 (반드시 `Secure` 속성과 함께 사용)
+
+## 문제 해결 가이드
+
+### CORS 오류 시 확인사항
+
+1. **Origin 문제**: 서버에서 허용하는 Origin과 클라이언트 주소 확인
+   ```javascript
+   // 서버 설정에 클라이언트 주소 정확히 포함
+   origin: ['http://127.0.0.1:8080', 'http://localhost:8080']
+   ```
+
+2. **클라이언트와 서버 주소 일치 여부**: localhost와 127.0.0.1은 브라우저에서 다른 오리진으로 취급
+   - 클라이언트 서버: `app.listen(PORT, 'localhost', () => {...})`
+   - 브라우저 접속: `http://localhost:8080` (IP가 아닌 도메인 이름 사용)
+
+3. **preflight 요청 처리**: 복잡한 요청 시 OPTIONS 요청 처리 확인
+
+### 쿠키 전송 문제 시 확인사항
+
+1. **클라이언트 credentials 설정**:
+   ```javascript
+   credentials: 'include' // 반드시 필요
+   ```
+
+2. **서버 CORS credentials 설정**:
+   ```javascript
+   credentials: true // 반드시 필요
+   ```
+
+3. **SameSite 속성 확인**:
+   - `SameSite=none`: HTTPS 환경에서만 작동 (Secure 필요)
+   - `SameSite=lax`: HTTP 환경에서 테스트 가능
+   - `SameSite=strict`: 크로스 사이트에서 전송 안됨
+
+4. **쿠키 도메인 설정 확인**:
+   ```javascript
+   // 도메인 설정이 필요한 경우 (서브도메인 간 공유 등)
+   res.cookie('testCookie', 'value', {
+     domain: '.example.com',
+     // 기타 속성
+   });
+   ```
 
 ## 주의사항
 

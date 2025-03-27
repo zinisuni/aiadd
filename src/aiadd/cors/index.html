@@ -58,9 +58,20 @@
   <div class="scenario">
     <h2>테스트 시나리오 개요</h2>
     <p>이 페이지는 다른 도메인(Origin)간 쿠키 전송 테스트를 수행합니다.</p>
-    <p>현재 클라이언트는 <strong>http://127.0.0.1:8080</strong>에서 실행 중이며,<br>
+    <p>현재 클라이언트는 <strong>http://localhost:8080</strong>에서 실행 중이며,<br>
        API 서버는 <strong>http://localhost:3000</strong>에서 실행 중입니다.</p>
     <p>두 서버는 다른 오리진으로 간주되므로 CORS 정책이 적용됩니다.</p>
+  </div>
+
+  <div class="scenario" style="border-left: 4px solid #FF9800;">
+    <h2>주의사항</h2>
+    <p>CORS 테스트 시 다음 사항에 유의하세요:</p>
+    <ul>
+      <li>클라이언트와 서버의 도메인이 정확히 일치해야 합니다(IP vs 도메인 이름).</li>
+      <li>서버의 CORS 설정에 클라이언트의 정확한 오리진(http://localhost:8080)이 포함되어 있어야 합니다.</li>
+      <li>HTTP 환경에서는 SameSite=None + Secure 쿠키는 전송되지 않습니다.</li>
+      <li>클라이언트에서 credentials: 'include' 옵션이 설정되어야 합니다.</li>
+    </ul>
   </div>
 
   <div class="scenario success-case">
@@ -131,6 +142,70 @@
   <div>
     <h2>결과</h2>
     <pre id="result">결과가 여기에 표시됩니다.</pre>
+  </div>
+
+  <div class="scenario" style="border-left: 4px solid #673AB7;">
+    <h2>서버 설정 가이드</h2>
+    <h3>클라이언트와 서버 실행 방법</h3>
+    <ol>
+      <li>
+        <strong>패키지 설치:</strong>
+        <pre>cd /Users/hspark/Code/hspark/aiadd/src/aiadd/cors
+npm install</pre>
+      </li>
+      <li>
+        <strong>서버 실행:</strong>
+        <pre>npm start</pre>
+        이 명령은 다음 두 서버를 동시에 실행합니다:
+        <ul>
+          <li>API 서버: <code>http://localhost:3000</code></li>
+          <li>클라이언트 서버: <code>http://localhost:8080</code></li>
+        </ul>
+      </li>
+    </ol>
+
+    <h3>주요 서버 설정</h3>
+    <h4>1. CORS 설정 (server.js)</h4>
+    <pre style="background-color: #f0f0f0; padding: 10px;">// 성공 케이스용 CORS 설정
+const corsOptionsSuccess = {
+  origin: ['http://127.0.0.1:8080', 'http://localhost:8080'], // 클라이언트 서버 주소
+  credentials: true, // 중요: 쿠키 전송을 허용
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+// CORS 미들웨어 적용
+app.use(cors(corsOptionsSuccess));</pre>
+
+    <h4>2. 쿠키 설정 (server.js)</h4>
+    <pre style="background-color: #f0f0f0; padding: 10px;">// SameSite=None + Secure (HTTPS 필요)
+res.cookie('testCookie', 'hello-cors', {
+  maxAge: 900000,
+  httpOnly: true,
+  sameSite: 'none',
+  secure: true
+});
+
+// SameSite=Lax (HTTP에서도 일부 크로스 사이트 요청에 전송 가능)
+res.cookie('localTestCookie', 'local-test', {
+  maxAge: 900000,
+  httpOnly: true,
+  sameSite: 'lax'
+});</pre>
+
+    <h4>3. 클라이언트 설정 (index.html)</h4>
+    <pre style="background-color: #f0f0f0; padding: 10px;">// credentials: 'include' 옵션으로 쿠키 포함하여 요청
+fetch('http://localhost:3000/api/data', {
+  method: 'GET',
+  credentials: 'include'
+});</pre>
+
+    <h3>문제 해결</h3>
+    <ul>
+      <li><strong>CORS 오류:</strong> 서버의 origin 설정이 클라이언트의 정확한 URL과 일치하는지 확인하세요(localhost vs 127.0.0.1).</li>
+      <li><strong>쿠키가 전송되지 않음:</strong> 클라이언트에서 credentials: 'include' 설정, 서버에서 credentials: true 설정을 확인하세요.</li>
+      <li><strong>SameSite=None 쿠키 문제:</strong> HTTP 환경에서는 SameSite=None + Secure 쿠키가 전송되지 않습니다. HTTPS를 사용하거나 SameSite=Lax로 테스트하세요.</li>
+    </ul>
   </div>
 
   <script>
