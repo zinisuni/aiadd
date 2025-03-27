@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CORS 쿠키 테스트</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    button {
+      padding: 10px 15px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>CORS 쿠키 테스트</h1>
+
+  <div>
+    <h2>쿠키 작업</h2>
+    <button id="setCookie">쿠키 설정</button>
+    <button id="getCookie">쿠키 확인</button>
+    <button id="clearCookie">쿠키 삭제</button>
+  </div>
+
+  <div>
+    <h2>CORS 요청</h2>
+    <button id="corsWithCredentials">credentials 포함 요청</button>
+    <button id="corsWithoutCredentials">credentials 미포함 요청</button>
+  </div>
+
+  <div>
+    <h2>결과</h2>
+    <pre id="result">결과가 여기에 표시됩니다.</pre>
+  </div>
+
+  <script>
+    const resultEl = document.getElementById('result');
+
+    // 결과 표시 함수
+    function showResult(message) {
+      resultEl.textContent = typeof message === 'object'
+        ? JSON.stringify(message, null, 2)
+        : message;
+    }
+
+    // 서버 URL
+    const SERVER_URL = 'http://localhost:3000';
+
+    // 쿠키 설정
+    document.getElementById('setCookie').addEventListener('click', async () => {
+      try {
+        const response = await fetch(`${SERVER_URL}/set-cookie`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+        showResult(data);
+      } catch (error) {
+        showResult(`에러: ${error.message}`);
+      }
+    });
+
+    // 쿠키 확인
+    document.getElementById('getCookie').addEventListener('click', () => {
+      showResult(`현재 쿠키: ${document.cookie}`);
+    });
+
+    // 쿠키 삭제
+    document.getElementById('clearCookie').addEventListener('click', async () => {
+      try {
+        const response = await fetch(`${SERVER_URL}/clear-cookie`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+        showResult(data);
+      } catch (error) {
+        showResult(`에러: ${error.message}`);
+      }
+    });
+
+    // credentials 포함 CORS 요청
+    document.getElementById('corsWithCredentials').addEventListener('click', async () => {
+      try {
+        const response = await fetch(`${SERVER_URL}/api/data`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+        showResult(data);
+      } catch (error) {
+        showResult(`에러: ${error.message}`);
+      }
+    });
+
+    // credentials 미포함 CORS 요청
+    document.getElementById('corsWithoutCredentials').addEventListener('click', async () => {
+      try {
+        const response = await fetch(`${SERVER_URL}/api/data`, {
+          method: 'GET',
+          credentials: 'omit'
+        });
+        const data = await response.json();
+        showResult(data);
+      } catch (error) {
+        showResult(`에러: ${error.message}`);
+      }
+    });
+  </script>
+</body>
+</html>
