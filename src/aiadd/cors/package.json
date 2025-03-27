@@ -4,9 +4,9 @@
   "description": "CORS 쿠키 전송 테스트",
   "main": "server.js",
   "scripts": {
-    "start-server": "node server.js",
+    "start-main-server": "node server.js",
     "start-client": "node client-server.js",
-    "start": "concurrently \"npm run start-server\" \"npm run start-client\""
+    "start": "concurrently \"npm run start-main-server\" \"npm run start-client\""
   },
   "dependencies": {
     "cookie-parser": "^1.4.6",
