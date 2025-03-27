@@ -22,10 +22,98 @@
       border-radius: 5px;
       overflow-x: auto;
     }
+    .scenario {
+      background-color: #f9f9f9;
+      padding: 15px;
+      margin: 20px 0;
+      border-left: 4px solid #2196F3;
+    }
+    .success-case {
+      border-left: 4px solid #4CAF50;
+    }
+    .failure-case {
+      border-left: 4px solid #F44336;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .test-steps {
+      margin-left: 20px;
+    }
   </style>
 </head>
 <body>
   <h1>CORS 쿠키 테스트</h1>
+
+  <div class="scenario">
+    <h2>테스트 시나리오 개요</h2>
+    <p>이 페이지는 다른 도메인(Origin)간 쿠키 전송 테스트를 수행합니다.</p>
+    <p>현재 클라이언트는 <strong>http://127.0.0.1:8080</strong>에서 실행 중이며,<br>
+       API 서버는 <strong>http://localhost:3000</strong>에서 실행 중입니다.</p>
+    <p>두 서버는 다른 오리진으로 간주되므로 CORS 정책이 적용됩니다.</p>
+  </div>
+
+  <div class="scenario success-case">
+    <h2>성공 케이스</h2>
+    <ol class="test-steps">
+      <li><strong>'쿠키 설정' 버튼 클릭</strong> - 서버에서 쿠키를 설정합니다.</li>
+      <li><strong>'credentials 포함 요청' 버튼 클릭</strong> - credentials: 'include' 옵션으로 API 요청을 보냅니다.</li>
+      <li><strong>결과 확인</strong> - localTestCookie만 전송됩니다. (SameSite=lax)</li>
+    </ol>
+    <p><em>성공 조건: 서버 응답에 "cookies" 객체에 "localTestCookie" 값이 표시됩니다.</em></p>
+    <p><em>참고: testCookie는 SameSite=none 및 Secure 옵션이 필요하므로 HTTP 환경에서는 전송되지 않습니다.</em></p>
+  </div>
+
+  <div class="scenario failure-case">
+    <h2>실패 케이스</h2>
+    <ol class="test-steps">
+      <li><strong>'쿠키 설정' 버튼 클릭</strong> - 서버에서 쿠키를 설정합니다.</li>
+      <li><strong>'credentials 미포함 요청' 버튼 클릭</strong> - credentials: 'omit' 옵션으로 API 요청을 보냅니다.</li>
+      <li><strong>결과 확인</strong> - 쿠키가 전송되지 않습니다.</li>
+    </ol>
+    <p><em>실패 이유: credentials 옵션이 'omit'으로 설정되어 있어 쿠키가 전송되지 않습니다.</em></p>
+  </div>
+
+  <div>
+    <h2>CORS와 쿠키 관련 설정 비교</h2>
+    <table>
+      <tr>
+        <th>설정</th>
+        <th>성공 조건</th>
+        <th>실패 조건</th>
+      </tr>
+      <tr>
+        <td>클라이언트 credentials</td>
+        <td>include</td>
+        <td>omit 또는 same-origin</td>
+      </tr>
+      <tr>
+        <td>서버 CORS credentials</td>
+        <td>true</td>
+        <td>false 또는 미설정</td>
+      </tr>
+      <tr>
+        <td>쿠키 SameSite</td>
+        <td>none (크로스 사이트) 또는 lax (일부 가능)</td>
+        <td>strict</td>
+      </tr>
+      <tr>
+        <td>SameSite=none 사용 시</td>
+        <td>반드시 Secure=true 필요 (HTTPS)</td>
+        <td>Secure 없으면 전송 실패</td>
+      </tr>
+    </table>
+  </div>
 
   <div>
     <h2>쿠키 작업</h2>
@@ -111,6 +199,28 @@
         const response = await fetch(`${SERVER_URL}/api/data`, {
           method: 'GET',
           credentials: 'omit'
+        });
+        const data = await response.json();
+        showResult(data);
+      } catch (error) {
+        showResult(`에러: ${error.message}`);
+      }
+    });
+
+    // 추가 버튼들 생성
+    document.querySelector('.failure-case').insertAdjacentHTML('beforeend', `
+      <div style="margin-top: 15px;">
+        <button id="corsWithCredentialsFailure">서버 측 credentials: false 테스트</button>
+        <p><em>서버 측에서 credentials: false로 설정된 엔드포인트 호출</em></p>
+      </div>
+    `);
+
+    // 추가 실패 케이스 - 서버 측 credentials: false
+    document.getElementById('corsWithCredentialsFailure').addEventListener('click', async () => {
+      try {
+        const response = await fetch(`${SERVER_URL}/api/no-credentials`, {
+          method: 'GET',
+          credentials: 'include' // 클라이언트는 쿠키 보내려고 함
         });
         const data = await response.json();
         showResult(data);
