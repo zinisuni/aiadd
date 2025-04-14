@@ -58,7 +58,7 @@ graph TD
 - redis-replica2: 복제본 노드 2 (포트 6381)
 - sentinel1, sentinel2, sentinel3: Sentinel 노드 (포트 26379-26381)
 - monitor: Flask 기반 모니터링 대시보드 (포트 5001)
-- redisinsight: Redis 공식 GUI 관리 도구 (포트 8002)
+- redisinsight: Redis 공식 GUI 관리 도구 (포트 8003)
 
 ## 구현된 모니터링 시스템 특징
 
@@ -69,7 +69,7 @@ graph TD
 - 수동 Failover 테스트 기능
 - 자동 상태 새로고침
 
-### RedisInsight 모니터링 (포트 8002)
+### RedisInsight 모니터링 (포트 8003)
 
 - 공식 Redis 관리 도구
 - 데이터 탐색 및 편집

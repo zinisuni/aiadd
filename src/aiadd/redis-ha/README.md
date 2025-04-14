@@ -73,7 +73,7 @@ docker-compose -f redis-sentinel.yml up -d
 3. 모니터링 서비스 접속
 
 - 커스텀 모니터링 대시보드: `http://localhost:5001`
-- RedisInsight: `http://localhost:8002`
+- RedisInsight: `http://localhost:8003`
 
 ## 기능
 
@@ -90,23 +90,23 @@ RedisInsight는 Redis Labs에서 제공하는 공식 GUI 도구로, Redis 인스
 
 #### RedisInsight 초기 설정
 
-1. 웹 브라우저에서 `http://localhost:8002` 접속
+1. 웹 브라우저에서 `http://localhost:8003` 접속
 2. RedisInsight 초기 설정 페이지에서 "I already have a Redis database" 선택
 3. 데이터베이스 추가:
    - **마스터 노드**:
-     - Host: redis-master
+     - Host: 172.28.0.10
      - Port: 6379
      - Name: Redis Master
    - **복제본 노드 1**:
-     - Host: redis-replica1
+     - Host: 172.28.0.11
      - Port: 6379
      - Name: Redis Replica 1
    - **복제본 노드 2**:
-     - Host: redis-replica2
+     - Host: 172.28.0.12
      - Port: 6379
      - Name: Redis Replica 2
    - **Sentinel 노드**:
-     - Host: sentinel1
+     - Host: 172.28.0.13
      - Port: 26379
      - Name: Redis Sentinel
      - Type: Sentinel (고급 설정에서 선택)
