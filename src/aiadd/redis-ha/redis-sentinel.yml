@@ -4,13 +4,17 @@ services:
   redis-master:
     image: redis:latest
     container_name: redis-master
+    hostname: redis-master
     ports:
       - "6379:6379"
     volumes:
       - ./redis-master.conf:/usr/local/etc/redis/redis.conf
     command: redis-server /usr/local/etc/redis/redis.conf
     networks:
-      - redis-net
+      redis-net:
+        aliases:
+          - redis-master
+        ipv4_address: 172.28.0.10
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -20,6 +24,7 @@ services:
   redis-replica1:
     image: redis:latest
     container_name: redis-replica1
+    hostname: redis-replica1
     ports:
       - "6380:6379"
     volumes:
@@ -29,7 +34,10 @@ services:
       redis-master:
         condition: service_healthy
     networks:
-      - redis-net
+      redis-net:
+        aliases:
+          - redis-replica1
+        ipv4_address: 172.28.0.11
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -39,6 +47,7 @@ services:
   redis-replica2:
     image: redis:latest
     container_name: redis-replica2
+    hostname: redis-replica2
     ports:
       - "6381:6379"
     volumes:
@@ -48,7 +57,10 @@ services:
       redis-master:
         condition: service_healthy
     networks:
-      - redis-net
+      redis-net:
+        aliases:
+          - redis-replica2
+        ipv4_address: 172.28.0.12
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -58,6 +70,7 @@ services:
   sentinel1:
     image: redis:latest
     container_name: sentinel1
+    hostname: sentinel1
     ports:
       - "26379:26379"
     volumes:
@@ -71,11 +84,21 @@ services:
       redis-replica2:
         condition: service_healthy
     networks:
-      - redis-net
+      redis-net:
+        aliases:
+          - sentinel1
+        ipv4_address: 172.28.0.13
+    environment:
+      - REDIS_MASTER_HOST=redis-master
+    extra_hosts:
+      - "redis-master:172.28.0.10"
+      - "redis-replica1:172.28.0.11"
+      - "redis-replica2:172.28.0.12"
 
   sentinel2:
     image: redis:latest
     container_name: sentinel2
+    hostname: sentinel2
     ports:
       - "26380:26379"
     volumes:
@@ -85,11 +108,21 @@ services:
       sentinel1:
         condition: service_started
     networks:
-      - redis-net
+      redis-net:
+        aliases:
+          - sentinel2
+        ipv4_address: 172.28.0.14
+    environment:
+      - REDIS_MASTER_HOST=redis-master
+    extra_hosts:
+      - "redis-master:172.28.0.10"
+      - "redis-replica1:172.28.0.11"
+      - "redis-replica2:172.28.0.12"
 
   sentinel3:
     image: redis:latest
     container_name: sentinel3
+    hostname: sentinel3
     ports:
       - "26381:26379"
     volumes:
@@ -99,11 +132,21 @@ services:
       sentinel1:
         condition: service_started
     networks:
-      - redis-net
+      redis-net:
+        aliases:
+          - sentinel3
+        ipv4_address: 172.28.0.15
+    environment:
+      - REDIS_MASTER_HOST=redis-master
+    extra_hosts:
+      - "redis-master:172.28.0.10"
+      - "redis-replica1:172.28.0.11"
+      - "redis-replica2:172.28.0.12"
 
   monitor:
     build: .
     container_name: redis-monitor
+    hostname: redis-monitor
     ports:
       - "5001:5000"
     depends_on:
@@ -112,11 +155,22 @@ services:
       sentinel1:
         condition: service_started
     networks:
-      - redis-net
+      redis-net:
+        aliases:
+          - redis-monitor
+        ipv4_address: 172.28.0.16
+    extra_hosts:
+      - "redis-master:172.28.0.10"
+      - "redis-replica1:172.28.0.11"
+      - "redis-replica2:172.28.0.12"
+      - "sentinel1:172.28.0.13"
+      - "sentinel2:172.28.0.14"
+      - "sentinel3:172.28.0.15"
 
   redisinsight:
     image: redislabs/redisinsight:latest
     container_name: redisinsight
+    hostname: redisinsight
     ports:
       - "8002:8001"
     volumes:
@@ -125,7 +179,15 @@ services:
       redis-master:
         condition: service_healthy
     networks:
-      - redis-net
+      redis-net:
+        aliases:
+          - redisinsight
+        ipv4_address: 172.28.0.17
+    extra_hosts:
+      - "redis-master:172.28.0.10"
+      - "redis-replica1:172.28.0.11"
+      - "redis-replica2:172.28.0.12"
+      - "sentinel1:172.28.0.13"
 
 networks:
   redis-net:
