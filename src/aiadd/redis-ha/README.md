@@ -95,18 +95,24 @@ docker-compose -f redis-sentinel.yml up -d
 
 RedisInsight는 Redis Labs에서 제공하는 공식 GUI 도구로, Redis 인스턴스의 모니터링과 관리를 위한 강력한 기능을 제공합니다.
 
-#### RedisInsight 자동 구성 시도
+#### RedisInsight 자동 구성
 
-프로젝트에 포함된 구성 스크립트를 통해 RedisInsight에 Redis 노드를 자동으로 등록하려고 시도합니다:
+프로젝트에 포함된 자동 구성 스크립트는 RedisInsight API를 활용하여 모든 Redis 노드를 자동으로 등록합니다:
 
 ```bash
-# RedisInsight 구성 스크립트 실행
+# RedisInsight 자동 구성 스크립트 실행
 ./redisinsight-config/startup.sh
 ```
 
-자동 구성이 실패하는 경우(환경이나 버전에 따라 다를 수 있음) 아래의 수동 설정 방법을 따라주세요.
+실행 후 http://localhost:8003 에 접속하면 다음 데이터베이스가 자동으로 등록되어 있습니다:
+- Redis Master
+- Redis Replica 1
+- Redis Replica 2
+- Redis Sentinel Cluster
 
-#### RedisInsight 수동 설정 방법
+> 참고: 자동 구성 스크립트는 [deepmancer/redisinsight-docker-autoconfig](https://github.com/deepmancer/redisinsight-docker-autoconfig) 프로젝트의 접근 방식을 참고하였습니다.
+
+#### RedisInsight 수동 설정 방법 (자동 구성이 실패한 경우)
 
 1. 웹 브라우저에서 `http://localhost:8003` 접속
 2. "I already have a Redis database" 선택

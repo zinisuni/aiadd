@@ -189,6 +189,7 @@ services:
           - redisinsight
         ipv4_address: 172.28.0.17
     extra_hosts:
+      - "host.docker.internal:host-gateway"
       - "redis-master:172.28.0.10"
       - "redis-replica1:172.28.0.11"
       - "redis-replica2:172.28.0.12"
