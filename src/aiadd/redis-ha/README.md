@@ -95,24 +95,16 @@ docker-compose -f redis-sentinel.yml up -d
 
 RedisInsight는 Redis Labs에서 제공하는 공식 GUI 도구로, Redis 인스턴스의 모니터링과 관리를 위한 강력한 기능을 제공합니다.
 
-#### RedisInsight 자동 구성
+#### RedisInsight 초기 설정
 
-프로젝트에 포함된 자동 구성 스크립트는 RedisInsight API를 활용하여 모든 Redis 노드를 자동으로 등록합니다:
+프로젝트에 포함된 초기 설정 스크립트를 실행하여 RedisInsight 컨테이너를 준비합니다:
 
 ```bash
-# RedisInsight 자동 구성 스크립트 실행
+# RedisInsight 설정 스크립트 실행
 ./redisinsight-config/startup.sh
 ```
 
-실행 후 http://localhost:8003 에 접속하면 다음 데이터베이스가 자동으로 등록되어 있습니다:
-- Redis Master
-- Redis Replica 1
-- Redis Replica 2
-- Redis Sentinel Cluster
-
-> 참고: 자동 구성 스크립트는 [deepmancer/redisinsight-docker-autoconfig](https://github.com/deepmancer/redisinsight-docker-autoconfig) 프로젝트의 접근 방식을 참고하였습니다.
-
-#### RedisInsight 수동 설정 방법 (자동 구성이 실패한 경우)
+#### RedisInsight 데이터베이스 추가 방법
 
 1. 웹 브라우저에서 `http://localhost:8003` 접속
 2. "I already have a Redis database" 선택
@@ -158,8 +150,8 @@ RedisInsight는 Redis Labs에서 제공하는 공식 GUI 도구로, Redis 인스
 - Test Connection 클릭 후 연결 확인
 - Add Redis Database 클릭하여 완료
 
-#### MacOS와 Windows 사용자를 위한 참고사항
-> Docker 컨테이너에서 호스트 머신에 접근하기 위해 `host.docker.internal`을 사용합니다. 이는 컨테이너 내부에서 호스트 머신의 IP 주소를 참조하는 특별한 DNS 이름입니다. Linux 사용자는 Docker 버전에 따라 추가 설정이 필요할 수 있습니다.
+#### Docker 환경에서의 호스트 연결
+> Docker 컨테이너에서 호스트 머신에 접근하기 위해 `host.docker.internal`을 사용합니다. 이는 MacOS와 Windows에서 컨테이너 내부에서 호스트 머신의 IP 주소를 참조하는 특별한 DNS 이름입니다. Linux 사용자는 Docker 버전에 따라 추가 설정이 필요할 수 있습니다.
 
 #### RedisInsight 활용
 
@@ -257,3 +249,45 @@ sentinel sentinels mymaster
 ```bash
 docker-compose -f redis-sentinel.yml down
 ```
+
+## RedisInsight 셋업
+
+### 자동 구성 방법
+
+RedisInsight 자동 구성 스크립트를 사용하면 별도의 수동 설정 없이 Redis Master, Replica, Sentinel 인스턴스에 쉽게 연결할 수 있습니다.
+
+```bash
+./redisinsight-config/startup.sh
+```
+
+실행 후 웹 브라우저에서 `http://localhost:8003`로 접속하면 다음 인스턴스가 자동으로 추가되어 있습니다:
+
+1. Redis Master - host.docker.internal:6379
+2. Redis Replica 1 - host.docker.internal:6380
+3. Redis Replica 2 - host.docker.internal:6381
+4. Redis Sentinel - host.docker.internal:26379 (Sentinel 유형)
+
+스크립트는 RedisInsight API를 사용하여 각 Redis 인스턴스를 자동으로 구성합니다.
+
+### 수동 구성 방법
+
+자동 구성 스크립트를 사용하지 않는 경우, 다음 단계를 통해 수동으로 RedisInsight에 Redis 인스턴스를 추가할 수 있습니다:
+
+1. 웹 브라우저에서 `http://localhost:8003`로 접속합니다.
+2. ADD REDIS DATABASE 버튼을 클릭합니다.
+3. 다음 정보로 Redis 인스턴스를 추가합니다:
+
+#### 독립 Redis 인스턴스 추가 (Master 및 Replica)
+
+* **Host**: host.docker.internal
+* **Port**: 6379 (Master), 6380 (Replica1), 6381 (Replica2)
+* **Name**: Redis Master, Redis Replica 1, Redis Replica 2
+
+#### Sentinel 인스턴스 추가
+
+1. 연결 유형으로 "Sentinel"을 선택합니다.
+2. 다음 정보를 입력합니다:
+   * **Sentinel Host**: host.docker.internal
+   * **Sentinel Port**: 26379
+   * **Sentinel Master Name**: mymaster
+   * **Name**: Redis Sentinel
