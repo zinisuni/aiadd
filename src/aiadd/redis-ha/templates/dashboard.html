@@ -119,7 +119,16 @@
 
     <script>
         // Mermaid 초기화
-        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose'
+        });
+
+        // 고유 ID 생성 함수
+        function generateUniqueId() {
+            return 'mermaid-' + Math.random().toString(36).substr(2, 9);
+        }
 
         // 데이터 처리 함수
         function processData(status) {
@@ -226,8 +235,48 @@
             mermaidCode += `    classDef sentinel fill:#FF9800,color:white;\n`;
             mermaidCode += `    classDef down fill:#f44336,color:white;\n`;
 
-            $('#mermaid-diagram').html(mermaidCode);
-            mermaid.init(undefined, '#mermaid-diagram');
+            // 다이어그램 컨테이너 완전히 교체
+            const diagramContainer = document.getElementById('mermaid-diagram');
+            const newId = generateUniqueId();
+
+            // 새로운 mermaid 컨테이너 생성
+            diagramContainer.innerHTML = '';
+            const newContainer = document.createElement('div');
+            newContainer.id = newId;
+            newContainer.className = 'mermaid';
+            newContainer.textContent = mermaidCode;
+            diagramContainer.appendChild(newContainer);
+
+            // 렌더링 시도
+            try {
+                mermaid.render(newId + '-svg', mermaidCode, (svgCode) => {
+                    document.getElementById(newId).innerHTML = svgCode;
+                });
+            } catch (error) {
+                console.error('Mermaid 렌더링 오류:', error);
+                document.getElementById(newId).innerHTML = '<pre>' + mermaidCode + '</pre>';
+
+                // 1초 후 다시 시도
+                setTimeout(function() {
+                    try {
+                        const retryId = generateUniqueId();
+                        const retryContainer = document.createElement('div');
+                        retryContainer.id = retryId;
+                        retryContainer.className = 'mermaid';
+                        retryContainer.textContent = mermaidCode;
+
+                        diagramContainer.innerHTML = '';
+                        diagramContainer.appendChild(retryContainer);
+
+                        mermaid.render(retryId + '-svg', mermaidCode, (svgCode) => {
+                            document.getElementById(retryId).innerHTML = svgCode;
+                        });
+                    } catch (retryError) {
+                        console.error('Mermaid 재시도 실패:', retryError);
+                        diagramContainer.innerHTML = '<pre>' + mermaidCode + '</pre>';
+                    }
+                }, 1000);
+            }
 
             // 클러스터 정보 JSON 표시
             $('#cluster-info').text(JSON.stringify(status, null, 2));
