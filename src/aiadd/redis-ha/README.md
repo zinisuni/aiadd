@@ -8,6 +8,7 @@
 - Redis 복제본(replica) 노드 2개
 - Redis Sentinel 노드 3개
 - 웹 기반 모니터링 대시보드
+- RedisInsight 모니터링 도구
 
 ## 시스템 구성도
 
@@ -25,6 +26,11 @@ graph TD
         R2[Replica 2]
     end
 
+    subgraph Monitoring
+        D[Dashboard]
+        RI[RedisInsight]
+    end
+
     S1 -->|모니터링| M
     S2 -->|모니터링| M
     S3 -->|모니터링| M
@@ -33,6 +39,15 @@ graph TD
     S1 <-->|쿼럼 통신| S2
     S1 <-->|쿼럼 통신| S3
     S2 <-->|쿼럼 통신| S3
+    D -->|상태 확인| M
+    D -->|상태 확인| R1
+    D -->|상태 확인| R2
+    D -->|상태 확인| S1
+    D -->|상태 확인| S2
+    D -->|상태 확인| S3
+    RI -->|관리/모니터링| M
+    RI -->|관리/모니터링| R1
+    RI -->|관리/모니터링| R2
 ```
 
 ## 시스템 요구사항
@@ -55,9 +70,10 @@ cd redis-ha
 docker-compose -f redis-sentinel.yml up -d
 ```
 
-3. 모니터링 대시보드 접속
+3. 모니터링 서비스 접속
 
-웹 브라우저에서 `http://localhost:5000`으로 접속합니다.
+- 커스텀 모니터링 대시보드: `http://localhost:5001`
+- RedisInsight: `http://localhost:8002`
 
 ## 기능
 
@@ -67,6 +83,43 @@ docker-compose -f redis-sentinel.yml up -d
 - 마스터-복제본 관계 시각화 (Mermaid 다이어그램)
 - 노드별 상세 정보 표시
 - 자동 상태 갱신 (5초 간격)
+
+### RedisInsight 활용하기
+
+RedisInsight는 Redis Labs에서 제공하는 공식 GUI 도구로, Redis 인스턴스의 모니터링과 관리를 위한 강력한 기능을 제공합니다.
+
+#### RedisInsight 초기 설정
+
+1. 웹 브라우저에서 `http://localhost:8002` 접속
+2. RedisInsight 초기 설정 페이지에서 "I already have a Redis database" 선택
+3. 데이터베이스 추가:
+   - **마스터 노드**:
+     - Host: redis-master
+     - Port: 6379
+     - Name: Redis Master
+   - **복제본 노드 1**:
+     - Host: redis-replica1
+     - Port: 6379
+     - Name: Redis Replica 1
+   - **복제본 노드 2**:
+     - Host: redis-replica2
+     - Port: 6379
+     - Name: Redis Replica 2
+   - **Sentinel 노드**:
+     - Host: sentinel1
+     - Port: 26379
+     - Name: Redis Sentinel
+     - Type: Sentinel (고급 설정에서 선택)
+     - Master Group: mymaster
+
+#### RedisInsight 활용
+
+- **Browser**: Redis 데이터 탐색 및 편집
+- **Slowlog**: 느린 쿼리 분석
+- **CLI**: Redis 명령 실행
+- **Info**: 실시간 서버 성능 메트릭
+- **Analytics**: 성능 분석
+- **Profiler**: 명령어 프로파일링
 
 ### Failover 테스트
 
@@ -127,6 +180,19 @@ sentinel replicas mymaster
 # Sentinel 목록 확인
 sentinel sentinels mymaster
 ```
+
+## RedisInsight vs 커스텀 모니터링 대시보드 비교
+
+| 기능 | RedisInsight | 커스텀 대시보드 |
+|-----|-------------|----------------|
+| 실시간 모니터링 | ✅ | ✅ |
+| 데이터 탐색/편집 | ✅ | ❌ |
+| Mermaid 시각화 | ❌ | ✅ |
+| 성능 분석 | ✅ | ❌ |
+| Redis 명령 실행 | ✅ | ❌ |
+| Sentinel 관리 | ✅ | ✅ |
+| Failover 테스트 | ✅ | ✅ |
+| 사용자 정의 UI | ❌ | ✅ |
 
 ## 주요 구성 파일
 

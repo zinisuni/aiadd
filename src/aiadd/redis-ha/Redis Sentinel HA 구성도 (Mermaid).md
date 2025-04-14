@@ -1,6 +1,8 @@
 <img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" class="logo" width="120"/>
 
-## Redis Sentinel HA 구성도 (Mermaid)
+## Redis Sentinel HA 구성도 (Mermaid) + RedisInsight
+
+## Redis Sentinel HA 구성도
 
 ```mermaid
 graph TD
@@ -16,182 +18,119 @@ graph TD
         R2[Replica 2]
     end
 
-    S1 --&gt;|모니터링| M
-    S2 --&gt;|모니터링| M
-    S3 --&gt;|모니터링| M
-    M --&gt;|비동기 복제| R1
-    M --&gt;|비동기 복제| R2
-    S1 &lt;--&gt;|쿼럼 통신| S2
-    S1 &lt;--&gt;|쿼럼 통신| S3
-    S2 &lt;--&gt;|쿼럼 통신| S3
+    subgraph Monitoring
+        D[Flask Dashboard]
+        RI[RedisInsight]
+    end
+
+    S1 -->|모니터링| M
+    S2 -->|모니터링| M
+    S3 -->|모니터링| M
+    M -->|비동기 복제| R1
+    M -->|비동기 복제| R2
+    S1 <-->|쿼럼 통신| S2
+    S1 <-->|쿼럼 통신| S3
+    S2 <-->|쿼럼 통신| S3
+    D -->|상태 확인| M
+    D -->|상태 확인| R1
+    D -->|상태 확인| R2
+    D -->|상태 확인| S1
+    D -->|상태 확인| S2
+    D -->|상태 확인| S3
+    RI -->|관리/모니터링| M
+    RI -->|관리/모니터링| R1
+    RI -->|관리/모니터링| R2
 ```
 
+## 구성 요소
 
-## 웹 기반 모니터링 시스템 구성
+1. **Redis 마스터/복제본**: 핵심 데이터 저장 노드
+2. **Redis Sentinel**: 고가용성 관리 및 장애 감지
+3. **Flask 대시보드**: 커스텀 모니터링 웹 UI
+4. **RedisInsight**: 공식 Redis 관리 도구
 
-### 1. 시스템 요구사항
+## Redis Sentinel 테스트 환경 (Docker Compose)
 
-- Python 3.8+
-- Flask
-- Docker-compose
-- Redis-py-cluster
+시스템은 다음과 같은 Docker 컨테이너로 구성됩니다:
 
+- redis-master: 마스터 노드 (포트 6379)
+- redis-replica1: 복제본 노드 1 (포트 6380)
+- redis-replica2: 복제본 노드 2 (포트 6381)
+- sentinel1, sentinel2, sentinel3: Sentinel 노드 (포트 26379-26381)
+- monitor: Flask 기반 모니터링 대시보드 (포트 5001)
+- redisinsight: Redis 공식 GUI 관리 도구 (포트 8002)
 
-### 2. 시각화 대시보드 코드
+## 구현된 모니터링 시스템 특징
 
-```python
-# app.py
-from flask import Flask, render_template
-import redis
-import docker
+### Flask 모니터링 대시보드 (포트 5001)
 
-app = Flask(__name__)
-dc = docker.from_env()
+- Mermaid.js 기반 다이어그램 시각화
+- 실시간 노드 상태 모니터링
+- 수동 Failover 테스트 기능
+- 자동 상태 새로고침
 
-def get_redis_status():
-    nodes = [
-        {'host': 'redis-master', 'port': 6379},
-        {'host': 'redis-replica1', 'port': 6380},
-        {'host': 'redis-replica2', 'port': 6381},
-        {'host': 'sentinel1', 'port': 26379}
-    ]
+### RedisInsight 모니터링 (포트 8002)
 
-    status = {}
-    for node in nodes:
-        try:
-            r = redis.Redis(**node, decode_responses=True)
-            info = r.info()
-            status[node['host']] = {
-                'role': info.get('role', 'sentinel'),
-                'connected': True,
-                'master_host': info.get('master_host', 'N/A')
-            }
-        except:
-            status[node['host']] = {'connected': False}
-    return status
+- 공식 Redis 관리 도구
+- 데이터 탐색 및 편집
+- 성능 메트릭 분석
+- 명령어 실행 인터페이스
+- Slowlog 및 성능 분석
 
-@app.route('/')
-def dashboard():
-    return render_template('dashboard.html', status=get_redis_status())
+## 장애 조치 테스트 시나리오
 
-@app.route('/failover')
-def trigger_failover():
-    sentinel = redis.Redis(host='sentinel1', port=26379)
-    sentinel.execute_command('SENTINEL FAILOVER mymaster')
-    return 'Failover initiated'
+1. **마스터 노드 다운 테스트**
+   - `docker stop redis-master` 명령으로 마스터 중지
+   - Sentinel이 자동으로 복제본 중 하나를 마스터로 승격
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-```
+2. **네트워크 분리 테스트**
+   - `docker network disconnect redis-ha_redis-net redis-master`
+   - 네트워크 단절 상황에서의 장애 조치 테스트
 
-```html
+3. **수동 Failover 테스트**
+   - 웹 대시보드의 Failover 버튼 클릭
+   - 또는 RedisInsight 인터페이스에서 Failover 명령 실행
 
+4. **자동화된 테스트 스크립트**
+   - `test-failover.sh` 스크립트 실행
+   - 장애 발생, 감지, 복구까지 전체 과정 자동화
 
-&lt;html&gt;
-&lt;head&gt;
-    &lt;title&gt;Redis Sentinel Monitor&lt;/title&gt;
-    &lt;script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"&gt;&lt;/script&gt;
-    &lt;style&gt;
-        .node { padding: 20px; margin: 10px; }
-        .master { background: #4CAF50; }
-        .replica { background: #2196F3; }
-        .down { background: #f44336; }
-    &lt;/style&gt;
-&lt;/head&gt;
-&lt;body&gt;
-    <div></div>
-    <div>
-        &lt;button onclick="location.reload()"&gt;Refresh&lt;/button&gt;
-        <a href="/failover">&lt;button&gt;Trigger Failover&lt;/button&gt;</a>
-    </div>
+## RedisInsight vs 커스텀 모니터링 시스템 비교
 
-    &lt;script&gt;
-        mermaid.initialize({startOnLoad:true});
-
-        function updateDiagram() {
-            fetch('/')
-                .then(response =&gt; response.text())
-                .then(data =&gt; {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(data, 'text/html');
-                    const status = JSON.parse(doc.getElementById('status-data').textContent);
-
-                    let mermaidCode = `graph TD\n`;
-                    for (const [host, info] of Object.entries(status)) {
-                        const shape = info.connected ? "[/${host}/]" : "[x${host}x]";
-                        const style = info.role === 'master' ? ":::master" :
-                                    info.role === 'slave' ? ":::replica" : ":::sentinel";
-                        mermaidCode += `${shape}${style}\n`;
-                    }
-                    document.getElementById('mermaid').innerHTML = mermaidCode;
-                    mermaid.init();
-                });
-        }
-        setInterval(updateDiagram, 2000);
-    &lt;/script&gt;
-&lt;/body&gt;
-&lt;/html&gt;
-```
-
-
-## 테스트 시나리오 시각화
-
-### 1. 정상 상태
-
-```mermaid
-graph TD
-    S1[/sentinel1/]:::sentinel
-    S2[/sentinel2/]:::sentinel
-    S3[/sentinel3/]:::sentinel
-    M[/redis-master/]:::master
-    R1[/redis-replica1/]:::replica
-    R2[/redis-replica2/]:::replica
-
-    S1 --&gt; M
-    S2 --&gt; M
-    S3 --&gt; M
-    M --&gt; R1
-    M --&gt; R2
-```
-
-
-### 2. 장애 발생 시
-
-```mermaid
-graph TD
-    S1[/sentinel1/]:::sentinel
-    S2[/sentinel2/]:::sentinel
-    S3[/sentinel3/]:::sentinel
-    M[xredis-masterx]:::down
-    R1[/redis-replica1/]:::master
-    R2[/redis-replica2/]:::replica
-
-    S1 --&gt; R1
-    S2 --&gt; R1
-    S3 --&gt; R1
-    R1 --&gt; R2
-```
-
+| 기능 | RedisInsight | 커스텀 대시보드 |
+|-----|-------------|----------------|
+| 실시간 모니터링 | ✅ | ✅ |
+| 데이터 탐색/편집 | ✅ | ❌ |
+| Mermaid 시각화 | ❌ | ✅ |
+| 성능 분석 | ✅ | ❌ |
+| Redis 명령 실행 | ✅ | ❌ |
+| Sentinel 관리 | ✅ | ✅ |
+| Failover 테스트 | ✅ | ✅ |
+| 사용자 정의 UI | ❌ | ✅ |
 
 ## 실행 방법
 
 ```bash
-# Flask 앱 실행
-pip install flask redis docker
-python app.py
-
-# Docker Compose로 Sentinel 클러스터 구성
+# 시스템 시작
 docker-compose -f redis-sentinel.yml up -d
+
+# 장애 조치 자동 테스트
+./test-failover.sh
+
+# 시스템 종료
+docker-compose -f redis-sentinel.yml down
 ```
 
-웹 브라우저에서 `http://localhost:5000` 접속 후 다음 기능 사용 가능:
+## 결론 및 활용 방안
 
-1. 실시간 노드 상태 표시(색상 변경)
-2. Failover 버튼으로 수동 장애 조치 테스트
-3. 2초 간격 자동 새로고침
-4. 노드 클릭시 상세 정보 팝업
+Redis Sentinel HA 구성은 프로덕션 환경에서 Redis의 고가용성을 보장하는 핵심 아키텍처입니다. 이 테스트 환경은 다음과 같은 목적으로 활용할 수 있습니다:
 
-이 시스템을 통해 장애 조치 과정을 시각적으로 확인하면서 안정성 테스트를 수행할 수 있습니다. 마스터 다운, 네트워크 분리, 복구 시나리오 등을 버튼 클릭으로 간편하게 테스트 가능합니다.
+1. Redis Sentinel 작동 원리 학습
+2. 장애 조치 시나리오 테스트 및 검증
+3. 모니터링 시스템 구축 연습
+4. 애플리케이션의 Redis 장애 대응 로직 테스트
+
+RedisInsight와 커스텀 모니터링 대시보드를 함께 활용하면 보다 완벽한 Redis HA 운영 환경을 구축할 수 있습니다.
 
 
 <img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" class="logo" width="120"/>

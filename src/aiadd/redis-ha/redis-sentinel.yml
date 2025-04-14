@@ -11,6 +11,11 @@ services:
     command: redis-server /usr/local/etc/redis/redis.conf
     networks:
       - redis-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
 
   redis-replica1:
     image: redis:latest
@@ -21,9 +26,15 @@ services:
       - ./redis-replica1.conf:/usr/local/etc/redis/redis.conf
     command: redis-server /usr/local/etc/redis/redis.conf
     depends_on:
-      - redis-master
+      redis-master:
+        condition: service_healthy
     networks:
       - redis-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
 
   redis-replica2:
     image: redis:latest
@@ -34,9 +45,15 @@ services:
       - ./redis-replica2.conf:/usr/local/etc/redis/redis.conf
     command: redis-server /usr/local/etc/redis/redis.conf
     depends_on:
-      - redis-master
+      redis-master:
+        condition: service_healthy
     networks:
       - redis-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
 
   sentinel1:
     image: redis:latest
@@ -47,9 +64,12 @@ services:
       - ./sentinel1.conf:/usr/local/etc/redis/sentinel.conf
     command: redis-sentinel /usr/local/etc/redis/sentinel.conf
     depends_on:
-      - redis-master
-      - redis-replica1
-      - redis-replica2
+      redis-master:
+        condition: service_healthy
+      redis-replica1:
+        condition: service_healthy
+      redis-replica2:
+        condition: service_healthy
     networks:
       - redis-net
 
@@ -62,9 +82,8 @@ services:
       - ./sentinel2.conf:/usr/local/etc/redis/sentinel.conf
     command: redis-sentinel /usr/local/etc/redis/sentinel.conf
     depends_on:
-      - redis-master
-      - redis-replica1
-      - redis-replica2
+      sentinel1:
+        condition: service_started
     networks:
       - redis-net
 
@@ -77,9 +96,8 @@ services:
       - ./sentinel3.conf:/usr/local/etc/redis/sentinel.conf
     command: redis-sentinel /usr/local/etc/redis/sentinel.conf
     depends_on:
-      - redis-master
-      - redis-replica1
-      - redis-replica2
+      sentinel1:
+        condition: service_started
     networks:
       - redis-net
 
@@ -87,17 +105,34 @@ services:
     build: .
     container_name: redis-monitor
     ports:
-      - "5000:5000"
+      - "5001:5000"
     depends_on:
-      - redis-master
-      - redis-replica1
-      - redis-replica2
-      - sentinel1
-      - sentinel2
-      - sentinel3
+      redis-master:
+        condition: service_healthy
+      sentinel1:
+        condition: service_started
+    networks:
+      - redis-net
+
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "8002:8001"
+    volumes:
+      - redisinsight-data:/db
+    depends_on:
+      redis-master:
+        condition: service_healthy
     networks:
       - redis-net
 
 networks:
   redis-net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  redisinsight-data:
