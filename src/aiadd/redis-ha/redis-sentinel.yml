@@ -180,6 +180,11 @@ services:
       - REDISINSIGHT_AUTO_IMPORT_DB_FILEPATH=/db/.redisinsight/databases.json
       - REDISINSIGHT_AUTO_UPDATE_CHECK=0
       - REDISINSIGHT_HOST=0.0.0.0
+      # CORS 및 CSRF 관련 설정
+      - REDISINSIGHT_CORSALLOWORIGIN=*
+      - REDISINSIGHT_CORSALLOWCREDENTIALS=true
+      - REDISINSIGHT_CORSALLOWMETHODS=GET,HEAD,PUT,PATCH,POST,DELETE
+      - REDISINSIGHT_DISABLE_CSRF_CHECK=1
     depends_on:
       redis-master:
         condition: service_healthy
