@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redis Sentinel Monitor</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .node-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .node {
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            margin-bottom: 10px;
+        }
+        .master {
+            background: #4CAF50;
+        }
+        .replica {
+            background: #2196F3;
+        }
+        .sentinel {
+            background: #FF9800;
+        }
+        .down {
+            background: #f44336;
+        }
+        .actions {
+            margin: 20px 0;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0b7dda;
+        }
+        .mermaid {
+            width: 100%;
+            margin-top: 20px;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .details {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Redis Sentinel HA 모니터링 대시보드</h1>
+            <div class="actions">
+                <button id="refresh-btn">새로고침</button>
+                <button id="failover-btn">Failover 테스트</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Redis 클러스터 다이어그램</h2>
+            <div id="mermaid-diagram" class="mermaid">
+                <!-- Mermaid 다이어그램이 여기에 렌더링됩니다 -->
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>노드 상태</h2>
+            <div class="node-grid" id="node-status">
+                <!-- 노드 상태가 여기에 표시됩니다 -->
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>클러스터 정보</h2>
+            <pre id="cluster-info"></pre>
+        </div>
+    </div>
+
+    <script id="status-data" type="application/json">{{ status_json|safe }}</script>
+
+    <script>
+        // Mermaid 초기화
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+
+        // 데이터 처리 함수
+        function processData(status) {
+            // 노드 상태 그리드 업데이트
+            let nodeStatusHtml = '';
+            for (const [nodeName, info] of Object.entries(status)) {
+                let nodeClass = '';
+                if (!info.connected) {
+                    nodeClass = 'down';
+                } else if (info.role === 'master') {
+                    nodeClass = 'master';
+                } else if (info.role === 'slave') {
+                    nodeClass = 'replica';
+                } else if (info.role === 'sentinel') {
+                    nodeClass = 'sentinel';
+                }
+
+                nodeStatusHtml += `
+                    <div class="node ${nodeClass}">
+                        <h3>${nodeName}</h3>
+                        <div class="details">
+                            <p><strong>상태:</strong> ${info.connected ? '연결됨' : '연결 끊김'}</p>
+                            <p><strong>역할:</strong> ${info.role}</p>
+                            ${info.role === 'slave' ? `<p><strong>마스터:</strong> ${info.master_host}</p>` : ''}
+                            ${info.role === 'master' ? `<p><strong>복제본 수:</strong> ${info.connected_slaves}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            $('#node-status').html(nodeStatusHtml);
+
+            // Mermaid 다이어그램 업데이트
+            let mermaidCode = `graph TD\n`;
+
+            // 먼저 모든 노드 정의
+            for (const [nodeName, info] of Object.entries(status)) {
+                let nodeShape = info.connected ? `[/${nodeName}/]` : `[x${nodeName}x]`;
+                let nodeClass = '';
+
+                if (info.role === 'master') {
+                    nodeClass = ':::master';
+                } else if (info.role === 'slave') {
+                    nodeClass = ':::replica';
+                } else if (info.role === 'sentinel') {
+                    nodeClass = ':::sentinel';
+                }
+
+                if (!info.connected) {
+                    nodeClass = ':::down';
+                }
+
+                mermaidCode += `    ${nodeName}${nodeShape}${nodeClass}\n`;
+            }
+
+            // 그 다음 관계 정의
+            for (const [nodeName, info] of Object.entries(status)) {
+                if (info.role === 'slave' && info.connected) {
+                    // 복제본과 마스터 간의 관계
+                    const masterHost = info.master_host;
+                    if (masterHost !== 'N/A') {
+                        // master_host에서 컨테이너 이름으로 변환 (IP -> 컨테이너 이름)
+                        let masterNodeName = '';
+                        for (const [name, nodeInfo] of Object.entries(status)) {
+                            if (nodeInfo.role === 'master' && nodeInfo.connected) {
+                                masterNodeName = name;
+                                break;
+                            }
+                        }
+                        if (masterNodeName) {
+                            mermaidCode += `    ${masterNodeName} ---> ${nodeName}\n`;
+                        }
+                    }
+                } else if (info.role === 'sentinel' && info.connected) {
+                    // Sentinel과 마스터 간의 관계
+                    let masterNodeName = '';
+                    for (const [name, nodeInfo] of Object.entries(status)) {
+                        if (nodeInfo.role === 'master' && nodeInfo.connected) {
+                            masterNodeName = name;
+                            break;
+                        }
+                    }
+                    if (masterNodeName) {
+                        mermaidCode += `    ${nodeName} ---> ${masterNodeName}\n`;
+                    }
+                }
+            }
+
+            // Sentinel 노드 간의 연결
+            const sentinels = Object.entries(status)
+                .filter(([_, info]) => info.role === 'sentinel' && info.connected)
+                .map(([name, _]) => name);
+
+            if (sentinels.length >= 2) {
+                for (let i = 0; i < sentinels.length; i++) {
+                    for (let j = i + 1; j < sentinels.length; j++) {
+                        mermaidCode += `    ${sentinels[i]} <---> ${sentinels[j]}\n`;
+                    }
+                }
+            }
+
+            // 클래스 정의
+            mermaidCode += `    classDef master fill:#4CAF50,color:white;\n`;
+            mermaidCode += `    classDef replica fill:#2196F3,color:white;\n`;
+            mermaidCode += `    classDef sentinel fill:#FF9800,color:white;\n`;
+            mermaidCode += `    classDef down fill:#f44336,color:white;\n`;
+
+            $('#mermaid-diagram').html(mermaidCode);
+            mermaid.init(undefined, '#mermaid-diagram');
+
+            // 클러스터 정보 JSON 표시
+            $('#cluster-info').text(JSON.stringify(status, null, 2));
+        }
+
+        // 초기 데이터 로드
+        $(document).ready(function() {
+            const statusData = JSON.parse(document.getElementById('status-data').textContent);
+            processData(statusData);
+
+            // 새로고침 버튼
+            $('#refresh-btn').click(function() {
+                $.getJSON('/api/status', function(data) {
+                    processData(data);
+                });
+            });
+
+            // Failover 버튼
+            $('#failover-btn').click(function() {
+                if (confirm('Failover를 실행하시겠습니까? 이 작업은 현재 마스터 노드가 변경될 수 있습니다.')) {
+                    $.getJSON('/failover', function(data) {
+                        alert(data.message);
+                        setTimeout(function() {
+                            $.getJSON('/api/status', function(data) {
+                                processData(data);
+                            });
+                        }, 2000);
+                    });
+                }
+            });
+
+            // 자동 새로고침 (5초마다)
+            setInterval(function() {
+                $.getJSON('/api/status', function(data) {
+                    processData(data);
+                });
+            }, 5000);
+        });
+    </script>
+</body>
+</html>
