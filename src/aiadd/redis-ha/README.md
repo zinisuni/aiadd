@@ -70,7 +70,14 @@ cd redis-ha
 docker-compose -f redis-sentinel.yml up -d
 ```
 
-3. 모니터링 서비스 접속
+3. RedisInsight 설정 (자동 구성이 실패하는 경우 수동 설정)
+
+```bash
+# RedisInsight 구성 스크립트 실행 (자동 구성 시도)
+./redisinsight-config/startup.sh
+```
+
+4. 모니터링 서비스 접속
 
 - 커스텀 모니터링 대시보드: `http://localhost:5001`
 - RedisInsight: `http://localhost:8003`
@@ -88,29 +95,65 @@ docker-compose -f redis-sentinel.yml up -d
 
 RedisInsight는 Redis Labs에서 제공하는 공식 GUI 도구로, Redis 인스턴스의 모니터링과 관리를 위한 강력한 기능을 제공합니다.
 
-#### RedisInsight 초기 설정
+#### RedisInsight 자동 구성 시도
+
+프로젝트에 포함된 구성 스크립트를 통해 RedisInsight에 Redis 노드를 자동으로 등록하려고 시도합니다:
+
+```bash
+# RedisInsight 구성 스크립트 실행
+./redisinsight-config/startup.sh
+```
+
+자동 구성이 실패하는 경우(환경이나 버전에 따라 다를 수 있음) 아래의 수동 설정 방법을 따라주세요.
+
+#### RedisInsight 수동 설정 방법
 
 1. 웹 브라우저에서 `http://localhost:8003` 접속
-2. RedisInsight 초기 설정 페이지에서 "I already have a Redis database" 선택
-3. 데이터베이스 추가:
-   - **마스터 노드**:
-     - Host: 172.28.0.10
-     - Port: 6379
-     - Name: Redis Master
-   - **복제본 노드 1**:
-     - Host: 172.28.0.11
-     - Port: 6379
-     - Name: Redis Replica 1
-   - **복제본 노드 2**:
-     - Host: 172.28.0.12
-     - Port: 6379
-     - Name: Redis Replica 2
-   - **Sentinel 노드**:
-     - Host: 172.28.0.13
-     - Port: 26379
-     - Name: Redis Sentinel
-     - Type: Sentinel (고급 설정에서 선택)
-     - Master Group: mymaster
+2. "I already have a Redis database" 선택
+3. 아래 정보를 사용하여 각 데이터베이스를 순차적으로 추가:
+
+##### 마스터 노드 추가
+- **Host**: host.docker.internal
+- **Port**: 6379
+- **Name**: Redis Master
+- **Username**: (비워두기)
+- **Password**: (비워두기)
+- Test Connection 클릭 후 연결 확인
+- Add Redis Database 클릭하여 완료
+
+##### 복제본 노드 1 추가
+- **Host**: host.docker.internal
+- **Port**: 6380
+- **Name**: Redis Replica 1
+- **Username**: (비워두기)
+- **Password**: (비워두기)
+- Test Connection 클릭 후 연결 확인
+- Add Redis Database 클릭하여 완료
+
+##### 복제본 노드 2 추가
+- **Host**: host.docker.internal
+- **Port**: 6381
+- **Name**: Redis Replica 2
+- **Username**: (비워두기)
+- **Password**: (비워두기)
+- Test Connection 클릭 후 연결 확인
+- Add Redis Database 클릭하여 완료
+
+##### Sentinel 클러스터 추가
+- **Connection Type**: Sentinel (고급 설정에서 선택)
+- **Master Group Name**: mymaster
+- **Sentinels**:
+  - Host: host.docker.internal, Port: 26379
+  - Host: host.docker.internal, Port: 26380
+  - Host: host.docker.internal, Port: 26381
+- **Name**: Redis Sentinel Cluster
+- **Username**: (비워두기)
+- **Password**: (비워두기)
+- Test Connection 클릭 후 연결 확인
+- Add Redis Database 클릭하여 완료
+
+#### MacOS와 Windows 사용자를 위한 참고사항
+> Docker 컨테이너에서 호스트 머신에 접근하기 위해 `host.docker.internal`을 사용합니다. 이는 컨테이너 내부에서 호스트 머신의 IP 주소를 참조하는 특별한 DNS 이름입니다. Linux 사용자는 Docker 버전에 따라 추가 설정이 필요할 수 있습니다.
 
 #### RedisInsight 활용
 
@@ -201,6 +244,7 @@ sentinel sentinels mymaster
 - `redis-replica1.conf`, `redis-replica2.conf`: 복제본 노드 설정
 - `sentinel1.conf`, `sentinel2.conf`, `sentinel3.conf`: Sentinel 설정
 - `app.py`: 모니터링 애플리케이션
+- `redisinsight-config/`: RedisInsight 자동 구성 파일
 
 ## 시스템 종료
 

@@ -1,0 +1,62 @@
+{
+  "version": "1.0.0",
+  "databases": [
+    {
+      "id": "redis-master",
+      "connectionType": "STANDALONE",
+      "host": "host.docker.internal",
+      "port": 6379,
+      "name": "Redis Master",
+      "username": "",
+      "password": "",
+      "tls": false,
+      "timeoutMillis": 10000
+    },
+    {
+      "id": "redis-replica1",
+      "connectionType": "STANDALONE",
+      "host": "host.docker.internal",
+      "port": 6380,
+      "name": "Redis Replica 1",
+      "username": "",
+      "password": "",
+      "tls": false,
+      "timeoutMillis": 10000
+    },
+    {
+      "id": "redis-replica2",
+      "connectionType": "STANDALONE",
+      "host": "host.docker.internal",
+      "port": 6381,
+      "name": "Redis Replica 2",
+      "username": "",
+      "password": "",
+      "tls": false,
+      "timeoutMillis": 10000
+    },
+    {
+      "id": "redis-sentinel",
+      "connectionType": "SENTINEL",
+      "sentinelMaster": "mymaster",
+      "sentinels": [
+        {
+          "host": "host.docker.internal",
+          "port": 26379
+        },
+        {
+          "host": "host.docker.internal",
+          "port": 26380
+        },
+        {
+          "host": "host.docker.internal",
+          "port": 26381
+        }
+      ],
+      "name": "Redis Sentinel Cluster",
+      "username": "",
+      "password": "",
+      "tls": false,
+      "timeoutMillis": 10000
+    }
+  ]
+}

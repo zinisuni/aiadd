@@ -38,4 +38,4 @@ echo "복구된 이전 마스터 노드의 현재 역할: $ROLE"
 
 echo "테스트가 완료되었습니다. 웹 대시보드와 RedisInsight에서 상태를 확인해 보세요."
 echo "  - 커스텀 대시보드: http://localhost:5001"
-echo "  - RedisInsight: http://localhost:8002"
+echo "  - RedisInsight: http://localhost:8003"

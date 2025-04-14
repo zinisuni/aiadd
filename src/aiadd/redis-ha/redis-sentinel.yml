@@ -168,13 +168,18 @@ services:
       - "sentinel3:172.28.0.15"
 
   redisinsight:
-    image: redislabs/redisinsight:latest
+    image: redislabs/redisinsight:1.12.0
     container_name: redisinsight
     hostname: redisinsight
     ports:
-      - "8002:8001"
+      - "8003:8001"
     volumes:
       - redisinsight-data:/db
+      - ./redisinsight-config:/redisinsight-config
+    environment:
+      - REDISINSIGHT_AUTO_IMPORT_DB_FILEPATH=/db/.redisinsight/databases.json
+      - REDISINSIGHT_AUTO_UPDATE_CHECK=0
+      - REDISINSIGHT_HOST=0.0.0.0
     depends_on:
       redis-master:
         condition: service_healthy
@@ -188,6 +193,8 @@ services:
       - "redis-replica1:172.28.0.11"
       - "redis-replica2:172.28.0.12"
       - "sentinel1:172.28.0.13"
+      - "sentinel2:172.28.0.14"
+      - "sentinel3:172.28.0.15"
 
 networks:
   redis-net:
