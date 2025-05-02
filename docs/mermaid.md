@@ -396,153 +396,128 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    subgraph "CI Pipeline"
-        direction LR
-        Git["📝 Git"] --> Build["🏗️ Build"]
-        Build --> Test["🔍 Test"]
-        Test --> Scan["🔒 Security Scan"]
-    end
-
-    subgraph "CD Pipeline"
-        direction LR
-        Scan --> Deploy["🚀 Deploy"]
-        Deploy --> Verify["✅ Verify"]
-    end
-
-    subgraph "Monitoring"
-        direction TB
-        Verify --> Monitor["📊 Monitor"]
-        Monitor --> Alert["⚠️ Alert"]
-    end
+    Git["📝 Git"] --> Build["🏗️ Build"]
+    Build --> Test["🔍 Test"]
+    Test --> Scan["🔒 Security Scan"]
+    Scan --> Deploy["🚀 Deploy"]
+    Deploy --> Verify["✅ Verify"]
+    Verify --> Monitor["📊 Monitor"]
+    Monitor --> Alert["⚠️ Alert"]
 ```
 
 ### Blue-Green 배포
 
 ```mermaid
 flowchart TB
-    subgraph "Production Environment"
-        direction LR
+    subgraph Current["현재 환경"]
         LB["🔄 Load Balancer"]
-
-        subgraph "Blue Environment"
-            B1["🔵 Blue V1"]
-        end
-
-        subgraph "Green Environment"
-            G1["🟢 Green V2"]
-        end
-
-        LB --> B1
-        LB -.-> G1
-
-        subgraph "Deployment Steps"
-            direction TB
-            S1["1. Deploy to Green"] -->
-            S2["2. Test Green"] -->
-            S3["3. Switch Traffic"] -->
-            S4["4. Monitor"] -->
-            S5["5. Rollback if needed"]
-        end
+        Blue["🔵 Blue Environment<br/>현재 버전"]
+        Green["🟢 Green Environment<br/>신규 버전"]
     end
+
+    subgraph Steps["배포 단계"]
+        direction TB
+        Step1["1️⃣ Green 환경에<br/>신규 버전 배포"]
+        Step2["2️⃣ Green 환경<br/>테스트"]
+        Step3["3️⃣ 트래픽<br/>전환"]
+        Step4["4️⃣ Blue 환경<br/>대기"]
+        Step5["5️⃣ 모니터링 및<br/>롤백 준비"]
+    end
+
+    LB --> Blue
+    LB -.-> Green
+    Step1 --> Step2 --> Step3 --> Step4 --> Step5
 ```
 
 ### Canary 배포
 
 ```mermaid
 flowchart LR
-    subgraph "Traffic Distribution"
+    subgraph Traffic["트래픽 분배"]
         LB["🔄 Load Balancer"]
-
-        subgraph "Production V1"
-            P1["⭐ 90% Traffic"]
-            P2["⭐ Stable Version"]
+        subgraph Prod["프로덕션"]
+            P1["⭐ V1 서버 #1<br/>안정 버전"]
+            P2["⭐ V1 서버 #2<br/>안정 버전"]
+            P3["⭐ V1 서버 #3<br/>안정 버전"]
         end
-
-        subgraph "Canary V2"
-            C1["🔆 10% Traffic"]
-            C2["🔆 New Version"]
-        end
-
-        LB --> P1
-        LB --> C1
-
-        subgraph "Metrics"
-            M1["📊 Error Rate"]
-            M2["📈 Latency"]
-            M3["💻 CPU Usage"]
+        subgraph Canary["카나리"]
+            C1["🔆 V2 서버<br/>신규 버전"]
         end
     end
+
+    subgraph Monitoring["모니터링"]
+        M1["📊 에러율"]
+        M2["📈 응답시간"]
+        M3["💻 리소스 사용량"]
+    end
+
+    LB --> P1
+    LB --> P2
+    LB --> P3
+    LB --> C1
+
+    C1 --> M1
+    C1 --> M2
+    C1 --> M3
 ```
 
 ### Rolling 배포
 
 ```mermaid
 flowchart TB
-    subgraph "Kubernetes Cluster"
-        direction LR
+    subgraph Cluster["쿠버네티스 클러스터"]
         LB["🔄 Load Balancer"]
-
-        subgraph "Step 1"
-            Pod1["📦 V1"]
-            Pod2["📦 V1"]
-            Pod3["📦 V1"]
-        end
-
-        subgraph "Step 2"
-            Pod4["📦 V2"]
-            Pod5["📦 V1"]
-            Pod6["📦 V1"]
-        end
-
-        subgraph "Step 3"
-            Pod7["📦 V2"]
-            Pod8["📦 V2"]
-            Pod9["📦 V1"]
-        end
-
-        subgraph "Final"
-            Pod10["📦 V2"]
-            Pod11["📦 V2"]
-            Pod12["📦 V2"]
+        subgraph Pods["파드"]
+            direction LR
+            subgraph Old["기존 버전"]
+                P1["📦 V1"]
+                P2["📦 V1"]
+                P3["📦 V1"]
+            end
+            subgraph New["신규 버전"]
+                P4["📦 V2"]
+                P5["📦 V2"]
+                P6["📦 V2"]
+            end
         end
     end
 
-    Step1["1. Initial State"] -->
-    Step2["2. Replace 1 Pod"] -->
-    Step3["3. Health Check"] -->
-    Step4["4. Continue Rolling"]
+    LB --> P1 & P2 & P3
+    LB --> P4 & P5 & P6
+
+    subgraph Process["배포 프로세스"]
+        direction TB
+        S1["1️⃣ 초기 상태<br/>모든 파드 V1"]
+        S2["2️⃣ 1/3 파드<br/>V2로 교체"]
+        S3["3️⃣ 2/3 파드<br/>V2로 교체"]
+        S4["4️⃣ 전체 파드<br/>V2로 교체"]
+    end
+
+    S1 --> S2 --> S3 --> S4
 ```
 
-### A/B 테스트 배포
+### A/B 테스트
 
 ```mermaid
 flowchart TB
-    subgraph "Traffic Management"
+    subgraph Test["A/B 테스트 환경"]
         LB["🔄 Load Balancer"]
-
-        subgraph "Version A"
-            A1["🅰️ Feature Set A"]
-            A2["📊 Metrics A"]
+        subgraph Variants["테스트 변형"]
+            A["🅰️ A 버전<br/>기존 기능"]
+            B["🅱️ B 버전<br/>신규 기능"]
         end
-
-        subgraph "Version B"
-            B1["🅱️ Feature Set B"]
-            B2["📊 Metrics B"]
-        end
-
-        subgraph "Analysis"
-            M1["📈 Conversion Rate"]
-            M2["⏱️ User Engagement"]
-            M3["💰 Revenue Impact"]
-        end
-
-        LB --> A1
-        LB --> B1
-        A1 --> A2
-        B1 --> B2
-        A2 --> Analysis
-        B2 --> Analysis
     end
+
+    subgraph Metrics["분석 지표"]
+        M1["📊 전환율"]
+        M2["⏱️ 체류시간"]
+        M3["💰 매출"]
+    end
+
+    LB --> A
+    LB --> B
+    A --> M1 & M2 & M3
+    B --> M1 & M2 & M3
 ```
 
 ## 팁과 트릭
