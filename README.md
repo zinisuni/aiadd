@@ -2,6 +2,8 @@
 
 ## 1. AIADD (AI Agent Driven Development)
 
+[DeepWiki zinisuni/aiadd](https://deepwiki.com/zinisuni/aiadd/2-redis-high-availability-system)
+
 **정의**: AIADD는 인공지능 에이전트가 소프트웨어 개발 프로세스를 주도하는 방법론입니다. 이 접근 방식에서는 AI가 개발자의 보조 역할을 넘어, 요구 사항 분석, 설계, 코딩, 테스트 및 배포의 전 과정을 주도적으로 수행합니다. AIADD는 개발 속도를 높이고, 코드 품질을 향상시키며, 반복적인 작업을 자동화하여 개발자의 창의적인 작업에 더 많은 시간을 할애할 수 있도록 합니다.
 
 ### 주요 특징:
